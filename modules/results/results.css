@@ -1,0 +1,291 @@
+/* ==========================================================================
+ * results.css
+ * Styles shared by the Results module: calculation-step typography, equations,
+ * matrices, analysis summary, equilibrium check and the step menu / panels.
+ * ========================================================================== */
+
+/* CALC STEPS STYLING */
+.calc-step {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+.calc-step h4 {
+    color: #1e3a8a;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.calc-step h5 {
+    color: #2563eb;
+    margin-top: 25px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    font-size: 14px;
+    border-bottom: 1px solid #bfdbfe;
+}
+
+.calc-step p {
+    font-size: 13px;
+    color: #334155;
+    margin-bottom: 12px;
+    line-height: 1.6;
+}
+
+.eq-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 18px;
+    overflow-x: auto;
+    padding: 20px;
+    margin-bottom: 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.eq-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    min-width: max-content;
+}
+
+.math-operator {
+    font-weight: 800;
+    font-size: 20px;
+    color: #64748b;
+    margin: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* MATRICES */
+.matrix-wrapper {
+    display: inline-grid;
+    grid-template-rows: 24px 14px auto;
+    align-items: center;
+    justify-items: center;
+    margin: 0 4px;
+    gap: 4px;
+}
+
+.matrix-title {
+    font-weight: 700;
+    font-size: 11px;
+    color: #475569;
+    background: #e2e8f0;
+    padding: 4px 12px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+    margin: 0;
+    align-self: end;
+}
+
+.matrix-table {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 13px;
+    border-collapse: collapse;
+    background: transparent;
+    min-width: unset;
+    width: auto;
+    margin: 0;
+    padding: 0;
+}
+
+.matrix-table td {
+    padding: 6px 14px;
+    text-align: right;
+    color: #0f172a;
+    white-space: nowrap;
+    border: none;
+    border-bottom: none;
+}
+
+.matrix-table tr:hover td {
+    background: transparent;
+}
+
+/* ANALYSIS SUMMARY */
+.analysis-summary-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.analysis-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 16px;
+}
+
+.analysis-summary-metric {
+    border: 1px solid #e5eaf0;
+    border-radius: 9px;
+    padding: 12px;
+    background: #f8fafc;
+}
+
+.analysis-summary-label {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.analysis-summary-value {
+    margin-top: 5px;
+    font-size: 15px;
+    font-weight: 800;
+    color: #1f2937;
+}
+
+@media (max-width: 900px) {
+    .analysis-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* EQUILIBRIUM CHECK */
+.equilibrium-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.equilibrium-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.equilibrium-status.ok {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.equilibrium-status.warn {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.equilibrium-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0 16px 16px;
+}
+
+.equilibrium-metric {
+    border: 1px solid #e5eaf0;
+    border-radius: 9px;
+    padding: 11px 12px;
+    background: #f8fafc;
+}
+
+.equilibrium-metric-label {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.equilibrium-metric-value {
+    margin-top: 5px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+}
+
+.equilibrium-note {
+    padding: 0 16px 16px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+@media (max-width: 900px) {
+    .equilibrium-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* RESULTS DETAIL MENU */
+.results-details-card {
+    overflow: visible;
+}
+
+.results-detail-menu {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+}
+
+.results-detail-btn {
+    border: 1px solid #d6dee9;
+    background: white;
+    color: #334155;
+    min-height: 42px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.25;
+    transition: 0.2s;
+}
+
+.results-detail-btn:hover {
+    background: #eef2f7;
+    border-color: #cbd5e1;
+}
+
+.results-detail-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.results-detail-body {
+    padding: 20px;
+}
+
+.result-detail-panel {
+    display: none;
+    animation: fade 0.2s ease;
+}
+
+.result-detail-panel.active {
+    display: block;
+}
+
+.result-detail-panel > .calc-step {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.calc-steps-source {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .results-detail-menu {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

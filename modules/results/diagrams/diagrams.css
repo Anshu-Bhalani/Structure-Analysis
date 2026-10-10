@@ -1,0 +1,267 @@
+/* ==========================================================================
+ * diagrams.css
+ * Styles for all diagrams: canvas containers, member focus, the full-screen
+ * diagram modal and its navigation toolbar (+ responsive rules).
+ * ========================================================================== */
+
+/* CANVAS UI */
+.canvas-container {
+    text-align: center;
+    overflow: hidden;
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Inline diagrams are display-only. Interaction is enabled only inside
+   the dedicated fullscreen diagram viewer. */
+.canvas-container > svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+/* FULL SCREEN DIAGRAM MODAL
+   Built as a flex column (header row + diagram body) rather than free-floating
+   absolutely-positioned elements, so the close button and mode toolbar can
+   never be covered by the diagram and never overlap each other, on any
+   screen size. */
+.fs-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh; /* dynamic viewport height where supported, so mobile
+                       browser toolbars can't hide the bottom of the modal */
+    background: #f4f7fb;
+    z-index: 10000;
+    overflow: hidden;
+}
+
+.fs-modal.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.fs-modal-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 20px;
+}
+
+.fs-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+    max-width: calc(100% - 52px); /* always leaves room for the close button */
+    background: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.fs-toolbar select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    height: 32px;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    outline: none;
+    background: white;
+    color: var(--text);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fs-close {
+    flex: 0 0 auto;
+    background: white;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 22px;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fs-close:hover {
+    background: #eef2f7;
+}
+
+.fs-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    padding: 0 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+#fsSVG {
+    width: 100%;
+    height: 100%;
+    background: white;
+}
+
+/* Keep the diagram legend fully inside the visible fullscreen area */
+#fsModal .result-diagram-fixed-legend {
+    max-width: calc(100% - 20px) !important;
+}
+
+@media (max-width: 800px) {
+
+    /* FULL SCREEN MODAL — MOBILE */
+    .fs-modal-header {
+        padding: 12px;
+        gap: 8px;
+    }
+    .fs-toolbar {
+        padding: 7px 10px;
+    }
+    .fs-toolbar select {
+        font-size: 12px;
+    }
+    .fs-close {
+        width: 36px;
+        height: 36px;
+        font-size: 20px;
+    }
+    .fs-body {
+        padding: 0 12px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+}
+
+@media (max-width: 500px) {
+
+    /* FULL SCREEN MODAL — SMALL PHONES */
+    .fs-modal-header {
+        padding: 10px;
+        gap: 6px;
+    }
+    .fs-toolbar {
+        padding: 6px 8px;
+    }
+    .fs-toolbar select {
+        font-size: 11px;
+    }
+    .fs-close {
+        width: 32px;
+        height: 32px;
+        font-size: 18px;
+    }
+    .fs-body {
+        padding: 0 8px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    #fsModal .result-diagram-fixed-legend {
+        font-size: 9px !important;
+        padding: 7px 8px !important;
+        line-height: 1.5 !important;
+        max-width: calc(100% - 12px) !important;
+    }
+}
+
+/* ===== Click-to-front + fade-others for AFD / SFD / BMD members (no color/weight change) ===== */
+.sf-member, .sf-diagram, .sf-label { cursor: pointer; }
+
+.sf-member, .sf-diagram, .sf-label, .sf-node { transition: opacity 0.15s; }
+
+svg.sf-focus-on .sf-dim { opacity: 0.15; }
+
+/* ===== Fullscreen canvas navigation toolbar (Zoom / Pan / Member Highlight) ===== */
+.fs-nav-tools {
+    position: absolute;
+    top: 10px;
+    right: 28px;
+    z-index: 30;
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.fs-nav-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+}
+
+.fs-nav-btn svg { width: 20px; height: 20px; pointer-events: none; }
+
+.fs-nav-btn:hover { background: #eef2f7; }
+
+.fs-nav-btn.active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #ffffff;
+}
+
+.fs-nav-btn.active:hover { background: #1d4ed8; }
+
+/* Navigation cursors / touch handling only while the matching tool is active */
+#fsModal.fs-nav-zoom #fsSVG svg { cursor: zoom-in; }
+
+#fsModal.fs-nav-pan #fsSVG svg { cursor: grab; }
+
+#fsModal.fs-nav-pan.fs-panning #fsSVG svg { cursor: grabbing; }
+
+#fsModal.fs-nav-zoom #fsSVG svg,
+#fsModal.fs-nav-pan #fsSVG svg { touch-action: none; }
+
+@media (max-width: 768px) {
+    .fs-nav-tools { right: 16px; top: 8px; gap: 5px; padding: 4px; }
+    .fs-nav-btn { width: 40px; height: 40px; }
+}
+
+@media (max-width: 500px) {
+    .fs-nav-tools { right: 12px; top: 6px; }
+}
+
+/* Grid load/torsion symbols in the structure model diagram are independent,
+   accessible SVG controls. Hover/focus/selection draws a visible blue halo. */
+.grid-diagram-symbol { cursor: pointer; outline: none; }
+.grid-diagram-symbol .grid-symbol-halo { transition: stroke 0.12s, stroke-width 0.12s; }
+.grid-diagram-symbol:hover .grid-symbol-halo,
+.grid-diagram-symbol:focus .grid-symbol-halo,
+.grid-diagram-symbol.grid-symbol-selected .grid-symbol-halo { stroke: #2563eb; stroke-width: 2.4; }
+.grid-diagram-symbol.grid-symbol-selected .grid-symbol-core { stroke: #2563eb; stroke-width: 2.2; }
+.grid-torsion-symbol:hover path,
+.grid-torsion-symbol:focus path,
+.grid-torsion-symbol.grid-symbol-selected path { stroke-width: 3.4; }
