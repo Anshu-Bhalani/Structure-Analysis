@@ -227,6 +227,7 @@ function safeStorageRemoveItem(key) {
 let currentModelLibraryId = safeStorageGetItem("structuralCurrentModelId") || "";
 let lastModelLibraryWriteSucceeded = true;
 let lastModelSaveStorageFailed = false;
+let lastModelLibraryReadFailed = false;
 
 function cloneBuiltInSupportTemplate(template) {
     return JSON.parse(JSON.stringify(template));
@@ -1224,7 +1225,7 @@ function validatePersistedInputModel(source) {
                 throw new Error(`Moment '${moment.id}' distance must not exceed element length ${length}.`);
             }
         }
-        (gridModel ? ["Mx", "My"] : ["Mx", "My", "Mz"]).forEach((field) => {
+        (gridModel ? ["Mx", "My"] : ["Mz"]).forEach((field) => {
             requireFiniteField(moment, field, `Moment '${moment.id}' ${field}`);
         });
     });
@@ -1365,9 +1366,20 @@ function normalizeModelLibraryRecords(source) {
 }
 
 function getModelLibrary() {
+    lastModelLibraryReadFailed = false;
+    let raw = null;
     try {
-        const saved = JSON.parse(safeStorageGetItem("structuralModels") || "{}");
-        if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+        raw = safeStorageGetItem("structuralModels");
+        const saved = JSON.parse(raw || "{}");
+        if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+            lastModelLibraryReadFailed = raw !== null && raw !== "";
+            return Object.create(null);
+        }
+        // Preserve rather than silently discard malformed records from otherwise valid JSON.
+        if (Object.values(saved).some((record) => !record || typeof record !== "object" || Array.isArray(record))) {
+            lastModelLibraryReadFailed = true;
+            return Object.create(null);
+        }
 
         const result = normalizeModelLibraryRecords(saved);
         let libraryChanged = result.changed;
@@ -1403,10 +1415,15 @@ function getModelLibrary() {
         }
         return result.library;
     } catch (error) {
-        return {};
+        lastModelLibraryReadFailed = true;
+        return Object.create(null);
     }
 }
 
+
+function getModelLibraryReadFailureMessage() {
+    return "The saved-model library could not be read from browser storage. The stored value has been left untouched to avoid overwriting potentially recoverable data. Export the current workspace as JSON before continuing.";
+}
 function setModelLibrary(library) {
     const result = normalizeModelLibraryRecords(library);
     lastModelLibraryWriteSucceeded = safeStorageSetItem("structuralModels", JSON.stringify(result.library));
@@ -1501,6 +1518,11 @@ function duplicateModelMessage(dup) {
 function saveCurrentModelToLibrary(silent = false) {
     lastModelSaveStorageFailed = false;
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        lastModelSaveStorageFailed = true;
+        alert(getModelLibraryReadFailureMessage());
+        return false;
+    }
     const data = getPersistedInputModel();
     let modelName = getModelName();
 
@@ -1566,6 +1588,10 @@ function loadModel() {
 
     // Preferred: restore the currently selected model from the named library.
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        if (typeof renderModelLibrary === "function") renderModelLibrary();
+        return;
+    }
     const storedCurrentId = safeStorageGetItem("structuralCurrentModelId") || "";
     if (storedCurrentId && library[storedCurrentId]?.data) {
         try {
@@ -1629,6 +1655,10 @@ function resetAnalysisForModelChange() {
 
 function openSavedModel(modelId) {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     const savedModel = library[modelId];
     if (!savedModel?.data) return;
 
@@ -1679,6 +1709,10 @@ function openSavedModel(modelId) {
 
 function newModel() {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     const existingNames = new Set(Object.values(library).map((m) => modelNameKey(m && m.name)));
     if (hasModelInputData()) existingNames.add(modelNameKey(getModelName()));
     let defaultNumber = Object.keys(library).length + 1;
@@ -1728,7 +1762,17 @@ function createNewModelFromDialog(event) {
 
     const defaultName = modal.dataset.defaultName || "New Model";
     const modelName = nameInput.value.trim() || defaultName;
-    const existingNames = new Set(Object.values(getModelLibrary()).map((m) => modelNameKey(m && m.name)));
+    const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        if (validation) {
+            validation.textContent = getModelLibraryReadFailureMessage();
+            validation.hidden = false;
+        } else {
+            alert(getModelLibraryReadFailureMessage());
+        }
+        return;
+    }
+    const existingNames = new Set(Object.values(library).map((m) => modelNameKey(m && m.name)));
     if (hasModelInputData()) existingNames.add(modelNameKey(getModelName()));
     if (existingNames.has(modelNameKey(modelName))) {
         if (validation) {
@@ -1754,7 +1798,12 @@ function createNewModelRecord(modelName, analysisMode) {
     resetAllEditForms();
     // Re-check after autosaving the previous model to guard every creation
     // path, including the prompt fallback and future callers.
-    modelName = getAvailableModelName(modelName, getModelLibrary());
+    const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
+    modelName = getAvailableModelName(modelName, library);
 
     AppConfig.persistedModelKeys.forEach((key) => {
         model[key] = [];
@@ -1782,6 +1831,10 @@ function createNewModelRecord(modelName, analysisMode) {
 }
 function deleteSavedModel(modelId) {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     const savedModel = library[modelId];
     if (!savedModel) return;
 
@@ -1823,6 +1876,10 @@ function exportModel() {
 
 function exportSavedModel(modelId) {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     const savedModel = library[modelId];
     if (!savedModel?.data) return;
     try {
@@ -1836,6 +1893,10 @@ function exportSavedModel(modelId) {
 
 function exportAllModels() {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     let models = Object.values(library).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     try {
         models = models.map((item) => ({ ...item, data: normalizeLegacySelfWeightModel(item.data) }));
@@ -1910,6 +1971,10 @@ function importModel(event) {
             // Collection import: merge all named models into the local library.
             if (imported?.type === "StructuralAnalysisModelCollection" && Array.isArray(imported.models)) {
                 const library = getModelLibrary();
+                if (lastModelLibraryReadFailed) {
+                    alert(getModelLibraryReadFailureMessage());
+                    return;
+                }
                 let importedCount = 0;
                 let duplicateCount = 0;
 
@@ -1974,9 +2039,11 @@ function importModel(event) {
                 safeStorageRemoveItem("structuralInputModel");
 
                 const importedBaseName = file.name.replace(/\.json$/i, "").trim();
+                const libraryForName = getModelLibrary();
                 const importedName = importedBaseName
-                    ? getAvailableModelName(importedBaseName, getModelLibrary())
+                    ? (lastModelLibraryReadFailed ? importedBaseName : getAvailableModelName(importedBaseName, libraryForName))
                     : "";
+                if (lastModelLibraryReadFailed) alert(getModelLibraryReadFailureMessage());
                 const nameInput = document.getElementById("modelName");
                 if (nameInput && importedName) {
                     nameInput.value = importedName;
