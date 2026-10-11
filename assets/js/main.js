@@ -399,11 +399,13 @@ function setAnalysisMode(value) {
 // 3. GENERIC HELPERS
 // ==========================================================================
 function getNextId(currentId) {
-    const match = currentId.match(/^(.*?)(\d+)$/);
+    const current = String(currentId ?? "");
+    const match = current.match(/^(.*?)(\d+)$/);
     if (match) {
-        return match[1] + (parseInt(match[2], 10) + 1);
+        const next = String(parseInt(match[2], 10) + 1).padStart(match[2].length, "0");
+        return match[1] + next;
     }
-    return currentId + "1";
+    return current + "1";
 }
 
 function val(id) {
@@ -712,6 +714,11 @@ function validateNodeInput(id, x, y, z, editingId = null) {
     for (const [value, label] of [[x, "X Coordinate"], [y, "Y Coordinate"], [z, "Z Coordinate"]]) {
         const error = requireFinite(value, label);
         if (error) return error;
+    }
+    const coincidentNode = model.nodes.find((node) =>
+        String(node.id) !== String(editingId) && Number(node.x) === Number(x) && Number(node.y) === Number(y));
+    if (coincidentNode) {
+        return `Node '${coincidentNode.id}' already occupies (${x}, ${y}). Each node must have unique X/Y coordinates.`;
     }
     return null;
 }
@@ -1062,10 +1069,17 @@ function validatePersistedInputModel(source) {
         });
     });
 
+    const occupiedNodeCoordinates = new Map();
     collections.nodes.forEach((node) => {
         requireFiniteField(node, "x", `Node '${node.id}' X coordinate`);
         requireFiniteField(node, "y", `Node '${node.id}' Y coordinate`);
         requireFiniteField(node, "z", `Node '${node.id}' Z coordinate`, { optional: true });
+        const coordinateKey = JSON.stringify([Number(node.x), Number(node.y)]);
+        const existingNodeId = occupiedNodeCoordinates.get(coordinateKey);
+        if (existingNodeId !== undefined) {
+            throw new Error(`Nodes '${existingNodeId}' and '${node.id}' share the same X/Y coordinates. Every node must have unique coordinates in the analysis plane.`);
+        }
+        occupiedNodeCoordinates.set(coordinateKey, node.id);
     });
 
     collections.elementTemplates.forEach((template) => {
@@ -1302,6 +1316,19 @@ function applyPersistedInputModel(source) {
     });
 }
 
+function getMissingSelfWeightElement(loadCase, elements = model.elements) {
+    if (!loadCase || loadCase.type !== "Self Weight") return null;
+    const weights = loadCase.memberSelfWeights && typeof loadCase.memberSelfWeights === "object"
+        ? loadCase.memberSelfWeights : {};
+    return elements.find((element) => {
+        const id = String(element.id);
+        if (!Object.prototype.hasOwnProperty.call(weights, id)) return true;
+        const weight = weights[id];
+        return weight === undefined || weight === null || weight === "" ||
+            !Number.isFinite(Number(weight)) || Number(weight) < 0;
+    }) || null;
+}
+
 function getModelName() {
     const input = document.getElementById("modelName");
     return (input?.value || "Structural Model").trim() || "Structural Model";
@@ -1532,11 +1559,13 @@ function saveCurrentModelToLibrary(silent = false) {
             alert(duplicateModelMessage(dup));
             return false;
         }
-        // Identical saved content is already preserved; resolve a name collision before autosaving.
-        if (dup.type === "content") return false;
+        // If this is a never-saved workspace, an identical saved model already
+        // preserves its content. An existing current record, however, must still
+        // be updated so autosave does not silently leave that record stale.
+        if (dup.type === "content" && !currentModelLibraryId) return false;
         modelName = getAvailableModelName(modelName, library, currentModelLibraryId);
-        const nameInput = document.getElementById("modelName");
-        if (nameInput) nameInput.value = modelName;
+        // Silent autosaves may need a unique library name, but must not
+        // rewrite the user's visible name field without an explicit action.
     }
 
     const previousCurrentId = currentModelLibraryId;
@@ -1551,10 +1580,12 @@ function saveCurrentModelToLibrary(silent = false) {
         updatedAt: new Date().toISOString(),
     };
 
+    // The named library is now the source of truth. Remove the legacy full-model
+    // snapshot before writing so it cannot consume quota alongside the library.
+    safeStorageRemoveItem("structuralInputModel");
     setModelLibrary(library);
     const persisted = lastModelLibraryWriteSucceeded &&
         safeStorageSetItem("structuralCurrentModelId", currentModelLibraryId) &&
-        safeStorageSetItem("structuralInputModel", JSON.stringify(data)) &&
         safeStorageSetItem("structuralModelName", modelName);
 
     if (!persisted) {
@@ -2020,15 +2051,13 @@ function importModel(event) {
                 validatePersistedInputModel(imported);
                 // Single-model JSON: load it as the current unsaved model.
                 if (hasModelInputData()) {
-                    const replaceConfirmed = confirm(
-                        "Importing this model will replace the current workspace model. Save the current model to the model library before continuing?",
+                    const saveBeforeReplace = confirm(
+                        "Importing this file will replace the current workspace model. Choose OK to save the current model first, or Cancel to replace it without saving.",
                     );
-                    if (!replaceConfirmed) return;
-                    // Preserve the current inputs before applying the imported
-                    // model. The silent save either updates the current library
-                    // entry or deduplicates identical content already saved.
-                    saveCurrentModelToLibrary(true);
-                    if (lastModelSaveStorageFailed) return;
+                    if (saveBeforeReplace) {
+                        saveCurrentModelToLibrary(true);
+                        if (lastModelSaveStorageFailed) return;
+                    }
                 }
                 applyPersistedInputModel(imported);
                 migrateUnitSystem();
@@ -2090,6 +2119,7 @@ function clearModel() {
         model[key] = [];
     });
     model.dofSettings = { skipAxial: false, skipMoment: false };
+    model.analysisMode = "plane";
     ensureBuiltInSupportTemplates();
     currentModelLibraryId = "";
     safeStorageRemoveItem("structuralCurrentModelId");
@@ -2135,7 +2165,6 @@ function switchSection(id, btnEl) {
 
     updatePageTitle(id);
     updatePageSubtitle(id);
-    refreshAll();
 }
 
 function goHome() {
@@ -2465,6 +2494,22 @@ function deleteItem(collection, encodedValue, property) {
     }
 
     if (!confirm(`Delete ${value}?`)) return;
+
+    if (property === "id") {
+        const editResetters = {
+            nodes: () => { if (typeof editingNodeId !== "undefined" && String(editingNodeId) === String(value)) resetNodeForm(); },
+            elementTemplates: () => { if (typeof editingElementTemplateId !== "undefined" && String(editingElementTemplateId) === String(value)) resetElementTemplateForm(); },
+            elements: () => { if (typeof editingElementId !== "undefined" && String(editingElementId) === String(value)) resetElementAssignmentForm(); },
+            supportTemplates: () => { if (typeof editingSupportTemplateId !== "undefined" && String(editingSupportTemplateId) === String(value)) resetSupportForm(); },
+            supportAssignments: () => { if (typeof editingSupportAssignmentId !== "undefined" && String(editingSupportAssignmentId) === String(value)) resetSupportAssignmentForm(); },
+            loadCases: () => { if (typeof editingLoadCaseId !== "undefined" && String(editingLoadCaseId) === String(value)) resetLoadCaseForm(); },
+            loads: () => { if (typeof editingLoadId !== "undefined" && String(editingLoadId) === String(value)) resetLoadForm(); },
+            momentCases: () => { if (typeof editingMomentCaseId !== "undefined" && String(editingMomentCaseId) === String(value)) resetMomentCaseForm(); },
+            moments: () => { if (typeof editingMomentId !== "undefined" && String(editingMomentId) === String(value)) resetMomentForm(); },
+        };
+        if (editResetters[collection]) editResetters[collection]();
+    }
+
     markAnalysisInvalidated();
     model[collection] = model[collection].filter(
         (item) => String(item[property]) !== String(value),
