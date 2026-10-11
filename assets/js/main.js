@@ -209,7 +209,22 @@ const model = {
 
 // Named model library. Each saved model stores only the true input model,
 // never solver-derived analysis state.
-let currentModelLibraryId = localStorage.getItem("structuralCurrentModelId") || "";
+// Storage can be disabled by privacy settings, sandboxing, or browser policy.
+// Keep the application usable in-memory if accessing localStorage throws.
+function safeStorageGetItem(key) {
+    try { return window.localStorage.getItem(key); }
+    catch (error) { return null; }
+}
+function safeStorageSetItem(key, value) {
+    try { window.localStorage.setItem(key, String(value)); return true; }
+    catch (error) { console.warn(`[Storage] Could not save "${key}"; changes remain in memory only.`, error); return false; }
+}
+function safeStorageRemoveItem(key) {
+    try { window.localStorage.removeItem(key); return true; }
+    catch (error) { console.warn(`[Storage] Could not remove "${key}".`, error); return false; }
+}
+
+let currentModelLibraryId = safeStorageGetItem("structuralCurrentModelId") || "";
 
 function cloneBuiltInSupportTemplate(template) {
     return JSON.parse(JSON.stringify(template));
@@ -256,6 +271,21 @@ function syncAnalysisModeUI() {
     }
     const gridFields = document.getElementById("gridElementProperties");
     if (gridFields) gridFields.style.display = gridMode ? "grid" : "none";
+    // Grid member templates have no area A, so their self-weight must be
+    // supplied directly as a line load (kN/m). Keep a legacy density-based
+    // value visible while editing an existing template so it is never
+    // silently reinterpreted as kN/m.
+    const selfWeightTypeSelect = document.getElementById("selfWeightType");
+    if (selfWeightTypeSelect) {
+        const densityOption = selfWeightTypeSelect.querySelector('option[value="density"]');
+        if (densityOption) densityOption.disabled = gridMode;
+        if (gridMode && typeof editingElementTemplateId !== "undefined" && editingElementTemplateId === null) {
+            selfWeightTypeSelect.value = "lineWeight";
+        }
+    }
+    // Keep the weight label/unit synchronized when a new Grid model selects
+    // line weight automatically, not only after a manual dropdown change.
+    if (typeof updateElementWeightUnit === "function") updateElementWeightUnit();
     document.querySelectorAll(".grid-only-property").forEach((node) => {
         node.style.display = gridMode ? "table-cell" : "none";
     });
@@ -268,9 +298,24 @@ function syncAnalysisModeUI() {
     const modeNote = document.getElementById("analysisModeNote");
     if (modeNote) {
         modeNote.textContent = isGridAnalysisMode()
-            ? "Grid DOFs: θX, θY and ΔZ. Grid templates require positive E, G, I and J. Loads use Fz; torsion uses Mx (+ right/− left) and My (+ up/− down)."
+            ? "Grid geometry lies in the XY plane; node Z coordinates are unused. Grid DOFs: θX, θY and ΔZ. Grid templates require positive E, G, I and J. Loads use Fz; torsion uses Mx (+ right/− left) and My (+ up/− down)."
             : "Plane analysis classifies each element as Beam, Truss or Frame from its A and I values.";
     }
+    if (typeof updateElementWeightUnit === "function") updateElementWeightUnit();
+
+    // Preserve the internal AFD/SFD/BMD keys used by the shared diagram engine,
+    // while showing the physical Grid quantities in both diagram selectors.
+    const diagramLabels = gridMode
+        ? { afd: "Torsion (Mx)", sfd: "Vertical Shear (Fz)", bmd: "Bending Moment (My)" }
+        : { afd: "AFD", sfd: "SFD", bmd: "BMD" };
+    ["resultsDiagramMode", "fsModeSelect"].forEach((selectId) => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        Object.entries(diagramLabels).forEach(([value, label]) => {
+            const option = Array.from(select.options || []).find((item) => item.value === value);
+            if (option) option.textContent = label;
+        });
+    });
 
     const setLabel = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     const setSupportDescription = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
@@ -409,6 +454,12 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
+// Safe for values embedded inside single-quoted inline JavaScript arguments.
+// encodeURIComponent alone leaves apostrophes unchanged, allowing quote breakout.
+function encodeInlineArgument(value) {
+    return encodeURIComponent(String(value ?? "")).replace(/'/g, "%27");
+}
+
 function formatNum(num) {
     if (Math.abs(num) < 1e-10) return "0.000";
     if (Math.abs(num) > 1e6 || (Math.abs(num) > 0 && Math.abs(num) < 1e-3))
@@ -446,11 +497,11 @@ function updateElementWeightUnit() {
     const unit = document.getElementById("elementWeightUnit");
     if (!label || !unit) return;
     if (type === "lineWeight") {
-        label.textContent = "Self Weight";
+        label.textContent = isGridAnalysisMode() ? "Grid Line Self Weight" : "Self Weight";
         unit.textContent = "kN/m";
     } else {
-        label.textContent = "Density";
-        unit.textContent = "kg/m³";
+        label.textContent = isGridAnalysisMode() ? "Density (unsupported in Grid)" : "Density";
+        unit.textContent = isGridAnalysisMode() ? "kg/m³ — unsupported" : "kg/m³";
     }
 }
 
@@ -590,6 +641,13 @@ function validateNodeInput(id, x, y, z, editingId = null) {
 // 4. MATRIX ALGEBRA UTILITIES
 // Pure matrix helpers shared by the stiffness method solver below.
 // ==========================================================================
+function isNumericallyZeroStiffnessDof(matrix, index, tolerance = Number.EPSILON * 100) {
+    const row = Array.isArray(matrix?.[index]) ? matrix[index] : [];
+    const rowScale = row.reduce((maximum, value) => Math.max(maximum, Math.abs(Number(value) || 0)), 0);
+    if (rowScale === 0) return true;
+    return Math.abs(Number(row[index]) || 0) <= rowScale * tolerance;
+}
+
 const Matrix = {
     zeros: (r, c) => Array.from({ length: r }, () => new Array(c).fill(0)),
     add: (A, B) => A.map((row, i) => row.map((val, j) => val + B[i][j])),
@@ -602,19 +660,28 @@ const Matrix = {
         let I = Matrix.zeros(n, n);
         for (let i = 0; i < n; i++) I[i][i] = 1;
         let C = M.map((r, i) => [...r, ...I[i]]);
+        // Keep each row's original scale aligned with its row during pivoting.
+        const rowScales = M.map((row) => row.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0));
         for (let i = 0; i < n; i++) {
-            let maxEl = Math.abs(C[i][i]),
-                maxRow = i;
-            for (let k = i + 1; k < n; k++) {
-                if (Math.abs(C[k][i]) > maxEl) {
-                    maxEl = Math.abs(C[k][i]);
+            // Scaled partial pivoting avoids treating every small-valued
+            // stiffness matrix as singular merely because its units/scale
+            // produce pivots below a fixed absolute threshold.
+            let maxRow = i;
+            let bestRatio = -1;
+            for (let k = i; k < n; k++) {
+                const ratio = rowScales[k] === 0 ? 0 : Math.abs(C[k][i]) / rowScales[k];
+                if (ratio > bestRatio) {
+                    bestRatio = ratio;
                     maxRow = k;
                 }
             }
-            if (Math.abs(C[maxRow][i]) < 1e-10) return null; // Singular
+            if (bestRatio < 1e-12) return null; // Singular or numerically dependent row
             let tmp = C[maxRow];
             C[maxRow] = C[i];
             C[i] = tmp;
+            const scaleTmp = rowScales[maxRow];
+            rowScales[maxRow] = rowScales[i];
+            rowScales[i] = scaleTmp;
             let pivot = C[i][i];
             for (let j = 0; j < 2 * n; j++) C[i][j] /= pivot;
             for (let k = 0; k < n; k++) {
@@ -691,7 +758,7 @@ function matrixToHTML(M, title = "", topLabels = null, rightLabels = null) {
     let html = `<div class="matrix-wrapper">`;
 
     if (title) {
-        html += `<div class="matrix-title">${title}</div>`;
+        html += `<div class="matrix-title">${escapeHtml(title)}</div>`;
     } else {
         html += `<div></div>`;
     }
@@ -702,7 +769,7 @@ function matrixToHTML(M, title = "", topLabels = null, rightLabels = null) {
         html += `<div style="display: flex; width: 100%; padding: 0 8px;">`;
         for (let c = 0; c < colsCount; c++) {
             let lbl = displayTopLabels[c] !== undefined ? displayTopLabels[c] : "";
-            html += `<div style="flex: 1; text-align: center; font-size: 11px; font-weight: bold; color: #dc2626;">${lbl}</div>`;
+            html += `<div style="flex: 1; text-align: center; font-size: 11px; font-weight: bold; color: #dc2626;">${escapeHtml(lbl)}</div>`;
         }
         html += `</div>`;
     } else {
@@ -720,7 +787,7 @@ function matrixToHTML(M, title = "", topLabels = null, rightLabels = null) {
     rows.forEach((row) => {
         html += `<tr>`;
         row.forEach((val) => {
-            html += `<td>${typeof val === "number" ? formatNum(val) : val}</td>`;
+            html += `<td>${typeof val === "number" ? formatNum(val) : escapeHtml(val)}</td>`;
         });
         html += `</tr>`;
     });
@@ -735,7 +802,7 @@ function matrixToHTML(M, title = "", topLabels = null, rightLabels = null) {
         html += `<div style="display: flex; flex-direction: column; justify-content: space-around; margin-left: 6px; padding: 6px 0;">`;
         rows.forEach((_, i) => {
             let lbl = displayRightLabels[i] !== undefined ? displayRightLabels[i] : "";
-            html += `<div style="font-size: 11px; font-weight: bold; color: #dc2626; line-height: 1;">${lbl}</div>`;
+            html += `<div style="font-size: 11px; font-weight: bold; color: #dc2626; line-height: 1;">${escapeHtml(lbl)}</div>`;
         });
         html += `</div>`;
     }
@@ -823,7 +890,221 @@ function getPersistedInputModel() {
     return persisted;
 }
 
+function validatePersistedInputModel(source) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+        throw new Error("The file must contain a model JSON object.");
+    }
+    if (source.analysisMode !== undefined && !["plane", "grid"].includes(source.analysisMode)) {
+        throw new Error("Model analysisMode must be either 'plane' or 'grid'.");
+    }
+
+    const requiredCollections = ["nodes", "elementTemplates", "elements"];
+    requiredCollections.forEach((key) => {
+        if (!Array.isArray(source[key])) {
+            throw new Error(`The model is missing the required '${key}' array.`);
+        }
+    });
+
+    const collections = {};
+    AppConfig.persistedModelKeys.forEach((key) => {
+        const list = source[key];
+        if (list !== undefined && !Array.isArray(list)) {
+            throw new Error(`Model field '${key}' must be an array.`);
+        }
+        collections[key] = list === undefined ? [] : list;
+        collections[key].forEach((item, index) => {
+            if (!item || typeof item !== "object" || Array.isArray(item)) {
+                throw new Error(`'${key}[${index}]' must be an object.`);
+            }
+        });
+    });
+
+    const idSets = {};
+    Object.entries(collections).forEach(([key, list]) => {
+        const seen = new Set();
+        list.forEach((item, index) => {
+            const rawId = item.id;
+            if (typeof rawId !== "string" || rawId.trim() === "") {
+                throw new Error(`'${key}[${index}]' must have a non-empty string ID.`);
+            }
+            if (rawId !== rawId.trim()) {
+                throw new Error(`'${key}[${index}]' ID must not contain leading or trailing whitespace.`);
+            }
+            const id = rawId;
+            if (seen.has(id)) throw new Error(`Duplicate ID '${id}' in '${key}'.`);
+            seen.add(id);
+        });
+        idSets[key] = new Set(list.map((item) => String(item.id)));
+    });
+
+    const requireReference = (value, targetSet, description) => {
+        if (value === undefined || value === null || String(value) === "" || !targetSet.has(String(value))) {
+            throw new Error(`Invalid or missing ${description}: '${value ?? ""}'.`);
+        }
+    };
+    const requireFiniteField = (record, field, description, { min = -Infinity, exclusiveMin = -Infinity, optional = false } = {}) => {
+        const value = record[field];
+        if (optional && (value === undefined || value === null || value === "")) return;
+        if (value === undefined || value === null || value === "" || !Number.isFinite(Number(value))) {
+            throw new Error(`${description} must be a finite number.`);
+        }
+        const number = Number(value);
+        if (number < min || number <= exclusiveMin) {
+            const limit = Number.isFinite(exclusiveMin) ? `greater than ${exclusiveMin}` : `at least ${min}`;
+            throw new Error(`${description} must be ${limit}.`);
+        }
+    };
+
+    const nodeIds = idSets.nodes;
+    const templateIds = idSets.elementTemplates;
+    const elementIds = idSets.elements;
+    const loadCaseIds = idSets.loadCases;
+    const momentCaseIds = idSets.momentCases;
+    const supportIds = new Set([...idSets.supportTemplates, "FIXED", "ROLLER", "HINGED"]);
+
+    collections.nodes.forEach((node) => {
+        requireFiniteField(node, "x", `Node '${node.id}' X coordinate`);
+        requireFiniteField(node, "y", `Node '${node.id}' Y coordinate`);
+        requireFiniteField(node, "z", `Node '${node.id}' Z coordinate`, { optional: true });
+    });
+
+    collections.elementTemplates.forEach((template) => {
+        const grid = source.analysisMode === "grid";
+        const legacyE = template.E_GPa ?? template.E;
+        requireFiniteField({ E: legacyE }, "E", `Element template '${template.id}' E`, { exclusiveMin: 0 });
+        requireFiniteField(template, "I", `Element template '${template.id}' I`, { min: 0 });
+        if (grid) {
+            const legacyG = template.G_GPa ?? template.G;
+            requireFiniteField({ G: legacyG }, "G", `Grid element template '${template.id}' G`, { exclusiveMin: 0 });
+            requireFiniteField(template, "J", `Grid element template '${template.id}' J`, { exclusiveMin: 0 });
+            requireFiniteField(template, "I", `Grid element template '${template.id}' I`, { exclusiveMin: 0 });
+        } else {
+            requireFiniteField(template, "A", `Element template '${template.id}' A`, { min: 0 });
+            if (Number(template.A) === 0 && Number(template.I) === 0) {
+                throw new Error(`Element template '${template.id}' cannot have both A and I equal to zero.`);
+            }
+        }
+        if (template.selfWeightType !== undefined && !["density", "lineWeight"].includes(template.selfWeightType)) {
+            throw new Error(`Element template '${template.id}' has an unsupported selfWeightType.`);
+        }
+        requireFiniteField(template, "density", `Element template '${template.id}' density/self-weight`, { min: 0, optional: true });
+    });
+
+    collections.supportTemplates.forEach((support) => {
+        const restraints = support.restraints;
+        if (!restraints || typeof restraints !== "object" || Array.isArray(restraints)) {
+            throw new Error(`Support template '${support.id}' is missing its restraints object.`);
+        }
+        ["RFx", "RFy", "RFz", "RMx", "RMy", "RMz"].forEach((field) => {
+            if (typeof restraints[field] !== "boolean") {
+                throw new Error(`Support template '${support.id}' restraint '${field}' must be true or false.`);
+            }
+        });
+        const displacement = support.displacement;
+        if (!displacement || typeof displacement !== "object" || Array.isArray(displacement)) {
+            throw new Error(`Support template '${support.id}' is missing its prescribed-displacement object.`);
+        }
+        ["dx", "dy", "dz", "tx", "ty", "tz"].forEach((field) => {
+            requireFiniteField(displacement, field, `Support template '${support.id}' displacement '${field}'`);
+        });
+    });
+
+    collections.elements.forEach((element) => {
+        requireReference(element.templateId, templateIds, `element template reference on element '${element.id}'`);
+        requireReference(element.startNode, nodeIds, `start-node reference on element '${element.id}'`);
+        requireReference(element.endNode, nodeIds, `end-node reference on element '${element.id}'`);
+        if (String(element.startNode) === String(element.endNode)) {
+            throw new Error(`Element '${element.id}' cannot start and end at the same node.`);
+        }
+        const start = collections.nodes.find((node) => String(node.id) === String(element.startNode));
+        const end = collections.nodes.find((node) => String(node.id) === String(element.endNode));
+        const length = Math.hypot(Number(end.x) - Number(start.x), Number(end.y) - Number(start.y));
+        if (!(length > 0) || !Number.isFinite(length)) {
+            throw new Error(`Element '${element.id}' must have non-zero length in the XY plane.`);
+        }
+    });
+
+    const assignedSupportNodes = new Set();
+    collections.supportAssignments.forEach((assignment) => {
+        requireReference(assignment.nodeId, nodeIds, `node reference on support assignment '${assignment.id}'`);
+        requireReference(assignment.supportId, supportIds, `support-template reference on support assignment '${assignment.id}'`);
+        const nodeKey = String(assignment.nodeId);
+        if (assignedSupportNodes.has(nodeKey)) {
+            throw new Error(`Node '${nodeKey}' has multiple support assignments. Combine the required restraints into one support template before importing.`);
+        }
+        assignedSupportNodes.add(nodeKey);
+    });
+    const gridModel = source.analysisMode === "grid";
+    const getElementLength = (elementId, description) => {
+        const element = collections.elements.find((candidate) => String(candidate.id) === String(elementId));
+        if (!element) throw new Error(`${description} references unknown element '${elementId}'.`);
+        const start = collections.nodes.find((node) => String(node.id) === String(element.startNode));
+        const end = collections.nodes.find((node) => String(node.id) === String(element.endNode));
+        const length = Math.hypot(Number(end?.x) - Number(start?.x), Number(end?.y) - Number(start?.y));
+        if (!(length > 0) || !Number.isFinite(length)) throw new Error(`${description} requires an element with positive length.`);
+        return length;
+    };
+
+    collections.loads.forEach((load) => {
+        requireReference(load.loadCaseId, loadCaseIds, `load-case reference on load '${load.id}'`);
+        // "Element Load" is a legacy alias still handled by both solver paths.
+        if (!["Nodal Load", "Element Point Load", "Element Load", "Element UDL"].includes(load.type)) {
+            throw new Error(`Load '${load.id}' has unsupported type '${load.type}'.`);
+        }
+        if (load.type === "Nodal Load") {
+            requireReference(load.nodeId, nodeIds, `node reference on load '${load.id}'`);
+        } else {
+            requireReference(load.elementId, elementIds, `element reference on load '${load.id}'`);
+        }
+
+        const startForceFields = gridModel ? ["Fz"] : ["Fx", "Fy"];
+        startForceFields.forEach((field) => requireFiniteField(load, field, `Load '${load.id}' ${field}`));
+        if (load.type === "Element Point Load" || load.type === "Element Load" || load.type === "Element UDL") {
+            const length = getElementLength(load.elementId, `Load '${load.id}'`);
+            requireFiniteField(load, "distance", `Load '${load.id}' distance`, { min: 0 });
+            if (Number(load.distance) > length) {
+                throw new Error(`Load '${load.id}' distance must not exceed element length ${length}.`);
+            }
+            if (load.type === "Element UDL") {
+                requireFiniteField(load, "distanceEnd", `Load '${load.id}' end distance`, { min: 0 });
+                if (!(Number(load.distance) < Number(load.distanceEnd)) || Number(load.distanceEnd) > length) {
+                    throw new Error(`Load '${load.id}' UDL interval must satisfy 0 ≤ start distance < end distance ≤ element length ${length}.`);
+                }
+                const endForceFields = gridModel ? ["FzEnd"] : ["FxEnd", "FyEnd"];
+                endForceFields.forEach((field) => requireFiniteField(load, field, `Load '${load.id}' ${field}`));
+            }
+        }
+        ["Fx", "Fy", "Fz", "FxEnd", "FyEnd", "FzEnd", "angle"].forEach((field) => {
+            requireFiniteField(load, field, `Load '${load.id}' ${field}`, { optional: true });
+        });
+    });
+    collections.moments.forEach((moment) => {
+        requireReference(moment.momentCaseId, momentCaseIds, `moment-case reference on moment '${moment.id}'`);
+        if (!["Nodal Moment", "Element Moment"].includes(moment.type)) {
+            throw new Error(`Moment '${moment.id}' has unsupported type '${moment.type}'.`);
+        }
+        if (moment.type === "Nodal Moment") {
+            requireReference(moment.nodeId, nodeIds, `node reference on moment '${moment.id}'`);
+        } else {
+            requireReference(moment.elementId, elementIds, `element reference on moment '${moment.id}'`);
+            const length = getElementLength(moment.elementId, `Moment '${moment.id}'`);
+            requireFiniteField(moment, "distance", `Moment '${moment.id}' distance`, { min: 0 });
+            if (Number(moment.distance) > length) {
+                throw new Error(`Moment '${moment.id}' distance must not exceed element length ${length}.`);
+            }
+        }
+        (gridModel ? ["Mx", "My"] : ["Mx", "My", "Mz"]).forEach((field) => {
+            requireFiniteField(moment, field, `Moment '${moment.id}' ${field}`);
+        });
+    });
+
+    return true;
+}
+
 function applyPersistedInputModel(source) {
+    // Validate the entire candidate before mutating live state. A bad file must
+    // not partially replace a model or be accepted as an empty model.
+    validatePersistedInputModel(source);
     AppConfig.persistedModelKeys.forEach((key) => {
         model[key] = Array.isArray(source?.[key]) ? source[key] : [];
     });
@@ -875,7 +1156,7 @@ function getModelName() {
 }
 
 function saveModelNamePreference() {
-    localStorage.setItem("structuralModelName", getModelName());
+    safeStorageSetItem("structuralModelName", getModelName());
 }
 
 function sanitizeFileName(name) {
@@ -934,20 +1215,20 @@ function normalizeModelLibraryRecords(source) {
 
 function getModelLibrary() {
     try {
-        const saved = JSON.parse(localStorage.getItem("structuralModels") || "{}");
+        const saved = JSON.parse(safeStorageGetItem("structuralModels") || "{}");
         if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
 
         const result = normalizeModelLibraryRecords(saved);
         if (result.changed) {
-            localStorage.setItem("structuralModels", JSON.stringify(result.library));
+            safeStorageSetItem("structuralModels", JSON.stringify(result.library));
 
             // If an existing duplicate had the current model ID, keep its
             // displayed name synchronized with the automatically repaired name.
-            const currentId = localStorage.getItem("structuralCurrentModelId") || "";
+            const currentId = safeStorageGetItem("structuralCurrentModelId") || "";
             const oldName = saved[currentId]?.name;
             const repairedName = result.library[currentId]?.name;
             if (repairedName && String(oldName ?? "") !== repairedName) {
-                localStorage.setItem("structuralModelName", repairedName);
+                safeStorageSetItem("structuralModelName", repairedName);
                 const nameInput = document.getElementById("modelName");
                 if (nameInput) nameInput.value = repairedName;
             }
@@ -960,13 +1241,13 @@ function getModelLibrary() {
 
 function setModelLibrary(library) {
     const result = normalizeModelLibraryRecords(library);
-    localStorage.setItem("structuralModels", JSON.stringify(result.library));
+    safeStorageSetItem("structuralModels", JSON.stringify(result.library));
 
-    const activeId = String(currentModelLibraryId || localStorage.getItem("structuralCurrentModelId") || "");
+    const activeId = String(currentModelLibraryId || safeStorageGetItem("structuralCurrentModelId") || "");
     const activeName = result.library[activeId]?.name;
     const requestedName = library?.[activeId]?.name;
     if (activeName && requestedName !== activeName) {
-        localStorage.setItem("structuralModelName", activeName);
+        safeStorageSetItem("structuralModelName", activeName);
         const nameInput = document.getElementById("modelName");
         if (nameInput) nameInput.value = activeName;
     }
@@ -1078,9 +1359,9 @@ function saveCurrentModelToLibrary(silent = false) {
     };
 
     setModelLibrary(library);
-    localStorage.setItem("structuralCurrentModelId", currentModelLibraryId);
-    localStorage.setItem("structuralInputModel", JSON.stringify(data));
-    localStorage.setItem("structuralModelName", modelName);
+    safeStorageSetItem("structuralCurrentModelId", currentModelLibraryId);
+    safeStorageSetItem("structuralInputModel", JSON.stringify(data));
+    safeStorageSetItem("structuralModelName", modelName);
     renderModelLibrary();
 
     if (!silent) alert(`Model "${modelName}" saved in browser storage.`);
@@ -1094,26 +1375,36 @@ function saveModel() {
 }
 
 function loadModel() {
-    const savedName = localStorage.getItem("structuralModelName");
+    const savedName = safeStorageGetItem("structuralModelName");
     const nameInput = document.getElementById("modelName");
     if (nameInput && savedName) nameInput.value = savedName;
 
     // Preferred: restore the currently selected model from the named library.
     const library = getModelLibrary();
-    const storedCurrentId = localStorage.getItem("structuralCurrentModelId") || "";
+    const storedCurrentId = safeStorageGetItem("structuralCurrentModelId") || "";
     if (storedCurrentId && library[storedCurrentId]?.data) {
-        currentModelLibraryId = storedCurrentId;
-        if (nameInput) nameInput.value = library[storedCurrentId].name || nameInput.value || "Structural Model";
-        applyPersistedInputModel(library[storedCurrentId].data);
-        ensureBuiltInSupportTemplates();
-        markAnalysisInvalidated();
-        renderModelLibrary();
+        try {
+            validatePersistedInputModel(library[storedCurrentId].data);
+            applyPersistedInputModel(library[storedCurrentId].data);
+            currentModelLibraryId = storedCurrentId;
+            if (nameInput) nameInput.value = library[storedCurrentId].name || nameInput.value || "Structural Model";
+            ensureBuiltInSupportTemplates();
+            markAnalysisInvalidated();
+            renderModelLibrary();
+        } catch (error) {
+            // A stale/corrupt library record must not abort application startup.
+            console.error("Unable to restore the current saved model:", error);
+            currentModelLibraryId = "";
+            safeStorageRemoveItem("structuralCurrentModelId");
+            renderModelLibrary();
+            alert(`The previously active saved model could not be loaded: ${error && error.message ? error.message : "invalid model data"}. It remains in your saved-model library for recovery.`);
+        }
         return;
     }
 
     // Backward compatibility: migrate the previous single-model storage into
     // the new named library the first time the updated file is opened.
-    const saved = localStorage.getItem("structuralInputModel");
+    const saved = safeStorageGetItem("structuralInputModel");
     if (!saved) {
         renderModelLibrary();
         return;
@@ -1133,7 +1424,7 @@ function loadModel() {
                 updatedAt: new Date().toISOString(),
             };
             setModelLibrary(library);
-            localStorage.setItem("structuralCurrentModelId", currentModelLibraryId);
+            safeStorageSetItem("structuralCurrentModelId", currentModelLibraryId);
         }
         renderModelLibrary();
     } catch (error) {
@@ -1156,13 +1447,22 @@ function openSavedModel(modelId) {
     const savedModel = library[modelId];
     if (!savedModel?.data) return;
 
+    // Validate the target before changing the current model or saving over its
+    // working state. Corrupt library entries must fail without side effects.
+    try {
+        validatePersistedInputModel(savedModel.data);
+    } catch (error) {
+        alert(`This saved model cannot be opened: ${error && error.message ? error.message : "invalid model data"}. Your current workspace has not been changed.`);
+        return;
+    }
+
     // Protect the current work from accidental loss by saving it first when it
     // contains input data. This does not alter the active solver state.
     if (hasModelInputData()) saveCurrentModelToLibrary(true);
 
     currentModelLibraryId = modelId;
-    localStorage.setItem("structuralCurrentModelId", modelId);
-    localStorage.setItem("structuralModelName", savedModel.name || "Structural Model");
+    safeStorageSetItem("structuralCurrentModelId", modelId);
+    safeStorageSetItem("structuralModelName", savedModel.name || "Structural Model");
 
     const nameInput = document.getElementById("modelName");
     if (nameInput) nameInput.value = savedModel.name || "Structural Model";
@@ -1264,8 +1564,8 @@ function createNewModelRecord(modelName, analysisMode) {
     syncAnalysisModeUI();
     ensureBuiltInSupportTemplates();
     currentModelLibraryId = "";
-    localStorage.removeItem("structuralCurrentModelId");
-    localStorage.setItem("structuralModelName", modelName);
+    safeStorageRemoveItem("structuralCurrentModelId");
+    safeStorageSetItem("structuralModelName", modelName);
 
     const nameInput = document.getElementById("modelName");
     if (nameInput) nameInput.value = modelName;
@@ -1365,7 +1665,7 @@ function exportAllModels() {
     };
 
     const defaultExportFileName =
-        localStorage.getItem("structuralExportAllFileName") || "Structural_Analysis_All_Models";
+        safeStorageGetItem("structuralExportAllFileName") || "Structural_Analysis_All_Models";
     const enteredExportFileName = prompt(
         "Enter export file name:",
         defaultExportFileName,
@@ -1373,7 +1673,7 @@ function exportAllModels() {
     if (enteredExportFileName === null) return;
 
     const safeExportFileName = sanitizeFileName(enteredExportFileName) || defaultExportFileName;
-    localStorage.setItem("structuralExportAllFileName", safeExportFileName);
+    safeStorageSetItem("structuralExportAllFileName", safeExportFileName);
     downloadJSONFile(`${safeExportFileName}.json`, bundle);
 }
 
@@ -1392,8 +1692,11 @@ function importModel(event) {
                 let importedCount = 0;
                 let duplicateCount = 0;
 
-                imported.models.forEach((item) => {
-                    if (!item?.data || typeof item.data !== "object") return;
+                imported.models.forEach((item, index) => {
+                    if (!item || typeof item !== "object" || !item.data || typeof item.data !== "object") {
+                        throw new Error(`Model collection entry ${index + 1} is missing a valid model payload.`);
+                    }
+                    validatePersistedInputModel(item.data);
                     let importName = String(item.name || `Imported Model ${importedCount + 1}`);
                     const fpImport = modelDataFingerprint(item.data);
                     if (fpImport && Object.values(library).some((m) => modelDataFingerprint(m.data) === fpImport)) {
@@ -1421,12 +1724,25 @@ function importModel(event) {
                 alert(`${importedCount} model(s) imported into the model library.` +
                     (duplicateCount ? ` ${duplicateCount} duplicate model(s) already saved on this device were skipped.` : ""));
             } else {
+                // Validate before prompting or saving the current workspace. An
+                // invalid import should have no persistent side effects.
+                validatePersistedInputModel(imported);
                 // Single-model JSON: load it as the current unsaved model.
+                if (hasModelInputData()) {
+                    const replaceConfirmed = confirm(
+                        "Importing this model will replace the current workspace model. Save the current model to the model library before continuing?",
+                    );
+                    if (!replaceConfirmed) return;
+                    // Preserve the current inputs before applying the imported
+                    // model. The silent save either updates the current library
+                    // entry or deduplicates identical content already saved.
+                    saveCurrentModelToLibrary(true);
+                }
                 applyPersistedInputModel(imported);
                 migrateUnitSystem();
                 ensureBuiltInSupportTemplates();
                 currentModelLibraryId = "";
-                localStorage.removeItem("structuralCurrentModelId");
+                safeStorageRemoveItem("structuralCurrentModelId");
 
                 const importedBaseName = file.name.replace(/\.json$/i, "").trim();
                 const importedName = importedBaseName
@@ -1444,7 +1760,7 @@ function importModel(event) {
                 alert("Structural input model imported as the current unsaved model.");
             }
         } catch (error) {
-            alert("Invalid JSON file.");
+            alert(`Invalid model file: ${error && error.message ? error.message : "Invalid JSON."}`);
         } finally {
             event.target.value = "";
         }
@@ -1457,7 +1773,7 @@ function resetActiveModelAfterSavedModelDeletion() {
     model.dofSettings = { skipAxial: false, skipMoment: false };
     model.analysisMode = "plane";
     currentModelLibraryId = "";
-    ["structuralCurrentModelId", "structuralInputModel", "structuralModelName"].forEach((key) => localStorage.removeItem(key));
+    ["structuralCurrentModelId", "structuralInputModel", "structuralModelName"].forEach((key) => safeStorageRemoveItem(key));
 
     const nameInput = document.getElementById("modelName");
     if (nameInput) nameInput.value = "Structural Model";
@@ -1478,9 +1794,9 @@ function clearModel() {
     model.dofSettings = { skipAxial: false, skipMoment: false };
     ensureBuiltInSupportTemplates();
     currentModelLibraryId = "";
-    localStorage.removeItem("structuralCurrentModelId");
-    localStorage.removeItem("structuralInputModel");
-    localStorage.removeItem("structuralModelName");
+    safeStorageRemoveItem("structuralCurrentModelId");
+    safeStorageRemoveItem("structuralInputModel");
+    safeStorageRemoveItem("structuralModelName");
 
     const nameInput = document.getElementById("modelName");
     if (nameInput) nameInput.value = "Structural Model";
@@ -1715,8 +2031,43 @@ document.addEventListener("pointermove", handleSortPointerMove, { passive: false
 document.addEventListener("pointerup", () => finishSortDrag(true));
 document.addEventListener("pointercancel", () => finishSortDrag(true));
 
+function handleSortKeyboardReorder(event) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const handle = event.target?.closest?.(".sort-handle");
+    if (!handle) return;
+    const row = handle.closest("tr[data-sort-collection][data-sort-id]");
+    const tbody = row?.parentElement;
+    if (!row || !tbody) return;
+
+    const collection = row.dataset.sortCollection;
+    const rows = Array.from(tbody.querySelectorAll("tr[data-sort-collection][data-sort-id]"))
+        .filter((candidate) => candidate.dataset.sortCollection === collection);
+    const index = rows.indexOf(row);
+    const nextIndex = index + (event.key === "ArrowUp" ? -1 : 1);
+    if (index < 0 || nextIndex < 0 || nextIndex >= rows.length) return;
+    event.preventDefault();
+
+    const targetRow = rows[nextIndex];
+    if (event.key === "ArrowUp") tbody.insertBefore(row, targetRow);
+    else tbody.insertBefore(row, targetRow.nextSibling);
+
+    const orderedIds = Array.from(tbody.querySelectorAll("tr[data-sort-collection]"))
+        .filter((candidate) => candidate.dataset.sortCollection === collection)
+        .map((candidate) => candidate.dataset.sortId);
+    const movedId = row.dataset.sortId;
+    if (reorderVisibleCollection(collection, orderedIds)) {
+        markAnalysisInvalidated();
+        refreshAll();
+        const movedRow = Array.from(document.querySelectorAll('tr[data-sort-collection][data-sort-id]'))
+            .find((candidate) => candidate.dataset.sortCollection === collection && candidate.dataset.sortId === movedId);
+        movedRow?.querySelector(".sort-handle")?.focus();
+    }
+}
+document.addEventListener("keydown", handleSortKeyboardReorder);
+
 function sortHandle(id) {
-    return `<span class="sort-handle" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>`;
+    const safeId = escapeHtml(id);
+    return `<span class="sort-handle" role="group" tabindex="0" title="Drag to reorder; use Arrow Up or Arrow Down when focused" aria-keyshortcuts="ArrowUp ArrowDown" aria-label="Reorder ${safeId}. Use Arrow Up or Arrow Down.">⋮⋮</span>`;
 }
 
 function setOptions(selectId, items, placeholder, valueKey = "id") {
@@ -1985,7 +2336,8 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
         item.G_GPa = Number(item.G) / 1e9;
         delete item.G;
       }
-      if (!Number.isFinite(Number(item.J))) item.J = Number(item.I) || 0;
+      // J is an independent torsional property. Do not fabricate it from I:
+      // missing/invalid J is rejected by the member validation below.
       return item;
     });
 
@@ -2268,10 +2620,10 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
       const localPointMoments = [];
       const activeLC = model.loadCases.find(item => String(item.id) === activeLoadCaseId);
 
-      if (Number(template.density) > 0 && activeLC && activeLC.type === "Self Weight") {
-        const q = template.selfWeightType === "density"
-          ? -(Number(template.density) * p.A * 9.81) / 1000
-          : -Number(template.density);
+      if (Number(template.density) > 0 && activeLC && activeLC.type === "Self Weight" && template.selfWeightType === "lineWeight") {
+        // Grid has no cross-sectional area input. Its self-weight is therefore
+        // an explicitly supplied downward line load (kN/m), never density×A.
+        const q = -Number(template.density);
         const fixedEnd = gridUDLLoadVector(q, q, 0, p.L, p.L);
         for (let i = 0; i < 6; i++) AML[i][0] -= fixedEnd[i][0];
       }

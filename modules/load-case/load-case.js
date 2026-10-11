@@ -15,9 +15,9 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <form id="loadCaseForm">
                 <div class="grid grid-3">
-                    <div class="field"><label>Load Case ID</label><input id="loadCaseId" placeholder="LC1" value="LC1"></div>
-                    <div class="field"><label>Type</label><select id="loadCaseType"><option value="Dead">Dead</option><option value="Live">Live</option><option value="Self Weight">Self Weight</option></select></div>
-                    <div class="field"><label>Description</label><input id="loadCaseDescription" placeholder="Floor dead load" value="Dead Load"></div>
+                    <div class="field"><label for="loadCaseId">Load Case ID</label><input id="loadCaseId" placeholder="LC1" value="LC1"></div>
+                    <div class="field"><label for="loadCaseType">Type</label><select id="loadCaseType"><option value="Dead">Dead</option><option value="Live">Live</option><option value="Self Weight">Self Weight</option></select></div>
+                    <div class="field"><label for="loadCaseDescription">Description</label><input id="loadCaseDescription" placeholder="Floor dead load" value="Dead Load"></div>
                 </div>
                 <div class="form-footer">
                     <button id="loadCaseSubmitBtn" type="submit" class="btn btn-primary">Create Load Case</button>
@@ -101,6 +101,6 @@ function renderLoadCases() {
     const tbody = document.getElementById("loadCaseTable");
     if (!model.loadCases.length) return showEmpty("loadCaseTable", 4);
     tbody.innerHTML = model.loadCases.map((l) =>
-        `<tr data-sort-collection="loadCases" data-sort-id="${escapeHtml(encodeURIComponent(l.id))}"><td>${sortHandle(l.id)}${escapeHtml(l.id)}</td><td><span class="badge badge-blue">${escapeHtml(l.type)}</span></td><td>${escapeHtml(l.description)}</td><td><div class="table-actions"><button class="icon-btn" onclick="editLoadCase('${encodeURIComponent(l.id)}')">✎</button><button class="icon-btn" onclick="deleteItem('loadCases','${encodeURIComponent(l.id)}','id')">×</button></div></td></tr>`
+        `<tr data-sort-collection="loadCases" data-sort-id="${escapeHtml(encodeInlineArgument(l.id))}"><td>${sortHandle(l.id)}${escapeHtml(l.id)}</td><td><span class="badge badge-blue">${escapeHtml(l.type)}</span></td><td>${escapeHtml(l.description)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit load case ${escapeHtml(l.id)}" title="Edit load case ${escapeHtml(l.id)}" onclick="editLoadCase('${encodeInlineArgument(l.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete load case ${escapeHtml(l.id)}" title="Delete load case ${escapeHtml(l.id)}" onclick="deleteItem('loadCases','${encodeInlineArgument(l.id)}','id')">×</button></div></td></tr>`
     ).join("");
 }

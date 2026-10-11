@@ -26,11 +26,11 @@ mountModuleHTML(".container", "beforeend", `
                 <div class="restraint-title">Active Analysis Cases</div>
                 <div class="grid grid-2">
                     <div class="field">
-                        <label>Active Load Case</label>
+                        <label for="activeLoadCaseSelect">Active Load Case</label>
                         <select id="activeLoadCaseSelect" onchange="setActiveAnalysisCases()"><option value="">No load case selected</option></select>
                     </div>
                     <div class="field">
-                        <label>Active Moment Case</label>
+                        <label for="activeMomentCaseSelect">Active Moment Case</label>
                         <select id="activeMomentCaseSelect" onchange="setActiveAnalysisCases()"><option value="">No moment case selected</option></select>
                     </div>
                 </div>
@@ -696,9 +696,11 @@ function calculateGridEquilibriumResiduals(AC, dofMap, modelNodes, restIndices, 
             const dy = (Number(n2.y) || 0) - (Number(n1.y) || 0);
             const L = Math.hypot(dx, dy);
             if (!(L > 0)) return;
-            const q = template.selfWeightType === "density"
-                ? -(Number(template.density) * (Number(template.A) || 0) * 9.81) / 1000
-                : -Number(template.density);
+            // Grid self-weight is stored as an explicit line load (kN/m).
+            // Density-based values are rejected before solving because Grid
+            // templates have no area A from which to calculate a line load.
+            if (template.selfWeightType !== "lineWeight") return;
+            const q = -Number(template.density);
             if (q !== 0) addGridUDLResultant(el, 0, L, q, q);
         });
     }
@@ -1019,7 +1021,7 @@ function updateSolverModeResultHeaders() {
         setText("summaryAxialLabel", "Maximum Mx action"); setText("summaryShearLabel", "Maximum My action"); setText("summaryMomentLabel", "Maximum Fz action");
     } else {
         setText("resDispHdr1", "UX (m)"); setText("resDispHdr2", "UY (m)"); setText("resDispHdr3", "RZ (rad)");
-        setText("resReactionGlobalHeading", "Global Axes"); setText("resReactionLocalHeading", "Local Axes");
+        setText("resReactionGlobalHeading", "Global Axes"); setText("resReactionLocalHeading", "Local Axes (lowest-ID connected member)");
         setText("resReactionHdr1", "Fx (kN)"); setText("resReactionHdr2", "Fy (kN)"); setText("resReactionHdr3", "Mz (kN·m)");
         setText("resReactionHdr4", "Fx′ (kN)"); setText("resReactionHdr5", "Fy′ (kN)"); setText("resReactionHdr6", "Mz′ (kN·m)");
         setText("resForceHdr1", "Axial (kN)"); setText("resForceHdr2", "Shear (kN)"); setText("resForceHdr3", "Moment (kN·m)");
@@ -1042,10 +1044,11 @@ function runAnalysisCore() {
         return alert("Select an Active Moment Case before running analysis.");
     }
 
+    const activeLoadCase = model.loadCases.find((lc) => String(lc.id) === String(activeLoadCaseId));
     const activeLoadCount = model.loads.filter(isActiveLoadCase).length;
     const activeMomentCount = model.moments.filter(isActiveMomentCase).length;
-    if (model.loads.length > 0 && activeLoadCount === 0) {
-        return alert(`No loads belong to Active Load Case "${activeLoadCaseId}". Choose a case containing loads.`);
+    if (model.loads.length > 0 && activeLoadCount === 0 && activeLoadCase?.type !== "Self Weight") {
+        return alert(`No loads belong to Active Load Case "${activeLoadCaseId}". Choose a case containing loads or select a Self Weight case that applies automatic member weight.`);
     }
     if (model.moments.length > 0 && activeMomentCount === 0) {
         return alert(`No moments belong to Active Moment Case "${activeMomentCaseId}". Choose a case containing moments.`);
@@ -1076,7 +1079,25 @@ function runAnalysisCore() {
     }
 
     const activeCaseLabel = getActiveAnalysisCaseLabel();
-    const activeLoadCase = model.loadCases.find((lc) => lc.id === activeLoadCaseId);
+    if (isGridAnalysisMode() && activeLoadCase?.type === "Self Weight") {
+        const densityOnlyTemplate = model.elements
+            .map((element) => model.elementTemplates.find((template) => String(template.id) === String(element.templateId)))
+            .find((template) => template && Number(template.density) > 0 && template.selfWeightType !== "lineWeight");
+        if (densityOnlyTemplate) {
+            return alert(`Grid self-weight cannot be calculated from density for template "${densityOnlyTemplate.id}" because Grid templates do not contain cross-sectional area A. Edit the template, select Self Weight, and enter its line weight in kN/m before running this load case.`);
+        }
+    }
+    if (!isGridAnalysisMode() && activeLoadCase?.type === "Self Weight") {
+        // Beam templates are identified by A = 0. Density-based weight needs
+        // area, so accepting this input would silently apply zero self-weight.
+        // Require an explicit kN/m line weight for such members instead.
+        const beamWithoutArea = model.elements
+            .map((element) => model.elementTemplates.find((template) => String(template.id) === String(element.templateId)))
+            .find((template) => template && Number(template.A) === 0 && Number(template.density) > 0 && template.selfWeightType !== "lineWeight");
+        if (beamWithoutArea) {
+            return alert(`Beam template "${beamWithoutArea.id}" has A = 0, so density-based self-weight would be zero. Edit the template, select Self Weight, and enter the member line weight in kN/m before running this load case.`);
+        }
+    }
     const hasSelfWeightData = model.elementTemplates.some((t) => Number(t.density) > 0);
     if (hasSelfWeightData && activeLoadCase?.type !== "Self Weight") {
         const useSelfWeight = confirm(
@@ -1134,7 +1155,9 @@ function runAnalysisCore() {
         drawDiagramSVG("reactionSVGSmall", "reactions");
     }
     updateResultsDiagram();
-    alert("Analysis completed successfully using LPW-3 Stiffness Method approach.");
+    alert(isGridAnalysisMode()
+        ? "Grid analysis completed successfully using the Grid Stiffness Method."
+        : "Analysis completed successfully using the LPW-3 Stiffness Method approach.");
 }
 
 // ==========================================================================
@@ -2151,21 +2174,27 @@ function pdfCollectReportSections() {
     }
 
     try {
-        const titles = {
-            afd: "Axial Force Diagram (AFD)",
-            sfd: "Shear Force Diagram (SFD)",
-            bmd: "Bending Moment Diagram (BMD)",
-        };
+        const titles = isGridAnalysisMode()
+            ? {
+                afd: "Torsion Diagram (Mx)",
+                sfd: "Vertical Shear Diagram (Fz)",
+                bmd: "Bending Moment Diagram (My)",
+            }
+            : {
+                afd: "Axial Force Diagram (AFD)",
+                sfd: "Shear Force Diagram (SFD)",
+                bmd: "Bending Moment Diagram (BMD)",
+            };
         const blocks = ["afd", "sfd", "bmd"].map(
             (mode, i) => `<div class="pdf-diagram${i > 0 ? " pdf-break-before" : ""}"><h5>${titles[mode]}</h5>${buildPdfDiagramBlock(mode)}</div>`,
         );
         sections.push({
             label: "Step 8 of 8",
-            html: `<div class="calc-step"><h4>Step 8: Axial Force, Shear Force and Bending Moment Diagrams (AFD, SFD, BMD)</h4><p>Diagrams derived from the member end actions [AM] recovered in Step 7 and the intermediate member loads.</p>${blocks.join("")}</div>`,
+            html: `<div class="calc-step"><h4>${isGridAnalysisMode() ? "Step 8: Grid Torsion, Vertical Shear and Bending Diagrams (Mx, Fz, My)" : "Step 8: Axial Force, Shear Force and Bending Moment Diagrams (AFD, SFD, BMD)"}</h4><p>Diagrams derived from the member end actions [AM] recovered in Step 7 and the intermediate member loads.</p>${blocks.join("")}</div>`,
         });
     } catch (err) {
         console.error(err);
-        throw new Error("Could not draw the AFD / SFD / BMD diagrams for the PDF. Check the browser console for details.");
+        throw new Error("Could not draw the Step 8 diagrams for the PDF. Check the browser console for details.");
     }
     return sections;
 }

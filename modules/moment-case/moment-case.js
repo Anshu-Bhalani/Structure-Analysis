@@ -15,9 +15,9 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <form id="momentCaseForm">
                 <div class="grid grid-3">
-                    <div class="field"><label id="momentCaseIdLabel">Moment Case ID</label><input id="momentCaseId" placeholder="MC1" value="MC1"></div>
-                    <div class="field"><label>Type</label><select id="momentCaseType"><option value="Dead">Dead</option><option value="Live">Live</option><option value="Self Weight">Self Weight</option></select></div>
-                    <div class="field"><label>Description</label><input id="momentCaseDescription" placeholder="Beam live moment" value="Dead Moment"></div>
+                    <div class="field"><label for="momentCaseId" id="momentCaseIdLabel">Moment Case ID</label><input id="momentCaseId" placeholder="MC1" value="MC1"></div>
+                    <div class="field"><label for="momentCaseType">Type</label><select id="momentCaseType"><option value="Dead">Dead</option><option value="Live">Live</option><option value="Self Weight">Self Weight</option></select></div>
+                    <div class="field"><label for="momentCaseDescription">Description</label><input id="momentCaseDescription" placeholder="Beam live moment" value="Dead Moment"></div>
                 </div>
                 <div class="form-footer"><button id="momentCaseSubmitBtn" type="submit" class="btn btn-primary">Create Moment Case</button></div>
             </form>
@@ -126,6 +126,6 @@ function renderMomentCases() {
     const tbody = document.getElementById("momentCaseTable");
     if (!model.momentCases.length) return showEmpty("momentCaseTable", 4);
     tbody.innerHTML = model.momentCases.map((m) =>
-        `<tr data-sort-collection="momentCases" data-sort-id="${escapeHtml(encodeURIComponent(m.id))}"><td>${sortHandle(m.id)}${escapeHtml(m.id)}</td><td><span class="badge badge-blue">${escapeHtml(m.type)}</span></td><td>${escapeHtml(m.description)}</td><td><div class="table-actions"><button class="icon-btn" onclick="editMomentCase('${encodeURIComponent(m.id)}')">✎</button><button class="icon-btn" onclick="deleteItem('momentCases','${encodeURIComponent(m.id)}','id')">×</button></div></td></tr>`
+        `<tr data-sort-collection="momentCases" data-sort-id="${escapeHtml(encodeInlineArgument(m.id))}"><td>${sortHandle(m.id)}${escapeHtml(m.id)}</td><td><span class="badge badge-blue">${escapeHtml(m.type)}</span></td><td>${escapeHtml(m.description)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit moment case ${escapeHtml(m.id)}" title="Edit moment case ${escapeHtml(m.id)}" onclick="editMomentCase('${encodeInlineArgument(m.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete moment case ${escapeHtml(m.id)}" title="Delete moment case ${escapeHtml(m.id)}" onclick="deleteItem('momentCases','${encodeInlineArgument(m.id)}','id')">×</button></div></td></tr>`
     ).join("");
 }

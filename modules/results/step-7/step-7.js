@@ -95,7 +95,7 @@ function solveStep7(ctx, step1, step4, step5, step6) {
     let resDispHTML = "";
     model.nodes.forEach((n) => {
         let d = dofMap[n.id];
-        resDispHTML += `<tr><td>${n.id}</td><td>${d.x === null ? "—" : formatNum(D[d.x][0])}</td><td>${d.y === null ? "—" : formatNum(D[d.y][0])}</td><td>${d.z === null ? "—" : formatNum(D[d.z][0])}</td></tr>`;
+        resDispHTML += `<tr><td>${escapeHtml(n.id)}</td><td>${d.x === null ? "—" : formatNum(D[d.x][0])}</td><td>${d.y === null ? "—" : formatNum(D[d.y][0])}</td><td>${d.z === null ? "—" : formatNum(D[d.z][0])}</td></tr>`;
     });
 
     let resReactHTML = "";
@@ -116,7 +116,7 @@ function solveStep7(ctx, step1, step4, step5, step6) {
         const localX = localReaction ? formatNum(localReaction.x) : "—";
         const localY = localReaction ? formatNum(localReaction.y) : "—";
         const localZ = localReaction ? formatNum(rz) : "—";
-        resReactHTML += `<tr><td>${sa.nodeId}</td><td>${formatNum(rx)}</td><td>${formatNum(ry)}</td><td>${formatNum(rz)}</td><td>${localX}</td><td>${localY}</td><td>${localZ}</td></tr>`;
+        resReactHTML += `<tr><td>${escapeHtml(sa.nodeId)}</td><td>${formatNum(rx)}</td><td>${formatNum(ry)}</td><td>${formatNum(rz)}</td><td>${localX}</td><td>${localY}</td><td>${localZ}</td></tr>`;
     });
 
     let resForceHTML = "";
@@ -138,7 +138,7 @@ function solveStep7(ctx, step1, step4, step5, step6) {
 
         // Step 7 [AM] direct formula injection
         if (!heavyModel) {
-            html += `<h6 style="margin-top:10px; color:#475569;">Element ${el.id}</h6>`;
+            html += `<h6 style="margin-top:10px; color:#475569;">Element ${escapeHtml(el.id)}</h6>`;
         }
         if (!heavyModel) {
             html += matrixEqHTML(
@@ -157,8 +157,8 @@ function solveStep7(ctx, step1, step4, step5, step6) {
             resForceHTML += `<tr><td rowspan="2">${escapeHtml(el.id)}</td><td>${escapeHtml(el.startNode)} (Start)</td><td>${formatNum(AM[0][0])}</td><td>${formatNum(AM[1][0])}</td><td>${formatNum(AM[2][0])}</td></tr>
                              <tr><td>${escapeHtml(el.endNode)} (End)</td><td>${formatNum(AM[3][0])}</td><td>${formatNum(AM[4][0])}</td><td>${formatNum(AM[5][0])}</td></tr>`;
         } else {
-            resForceHTML += `<tr><td rowspan="2">${el.id}</td><td>${el.startNode} (Start)</td><td>${formatNum(AM[0][0])}</td><td>${formatNum(AM[1][0])}</td><td>${formatNum(AM[2][0])}</td></tr>
-                             <tr><td>${el.endNode} (End)</td><td>${formatNum(AM[3][0])}</td><td>${formatNum(AM[4][0])}</td><td>${formatNum(AM[5][0])}</td></tr>`;
+            resForceHTML += `<tr><td rowspan="2">${escapeHtml(el.id)}</td><td>${escapeHtml(el.startNode)} (Start)</td><td>${formatNum(AM[0][0])}</td><td>${formatNum(AM[1][0])}</td><td>${formatNum(AM[2][0])}</td></tr>
+                             <tr><td>${escapeHtml(el.endNode)} (End)</td><td>${formatNum(AM[3][0])}</td><td>${formatNum(AM[4][0])}</td><td>${formatNum(AM[5][0])}</td></tr>`;
         }
 
         elementResults.push({ el, AM });

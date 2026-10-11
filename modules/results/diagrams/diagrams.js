@@ -75,7 +75,7 @@ mountModuleHTML(".app", "afterend", `
                 <option value="displacement">Displacement</option>
             </select>
         </div>
-        <button class="fs-close" onclick="closeFullScreen()">×</button>
+        <button type="button" class="fs-close" aria-label="Close full-screen diagram" title="Close full-screen diagram" onclick="closeFullScreen()">×</button>
     </div>
     <div class="fs-body">
         <div class="fs-nav-tools" id="fsNavTools" role="toolbar" aria-label="Canvas navigation controls">
@@ -247,19 +247,18 @@ function calculateAutoFit(width, height, mode = "model") {
     let fitScale = Math.min(scaleX, scaleY);
     if (!Number.isFinite(fitScale) || fitScale <= 0) fitScale = 100;
 
-    // Shared proportional baseline for result/reaction diagrams:
-    // the shortest real member is always rendered as 200 px. This is the
-    // same baseline principle used by the Structure Model renderer.
+    // Shared proportional baseline for result/reaction diagrams. It is a
+    // target, not an absolute guarantee: when the shortest member would force
+    // the full model outside the viewport, prefer the fit scale to avoid
+    // clipping long members or node labels.
     const minElementLength = getMinimumElementLength();
-    let scale =
+    const baselineScale =
         minElementLength && Number.isFinite(minElementLength) && minElementLength > 0
             ? AppConfig.sharedDiagramBaselinePx / minElementLength
             : fitScale;
+    let scale = Math.min(baselineScale, fitScale);
 
-    // Do not artificially cap short-member models at the old 300-unit ceiling.
-    // A short member such as 1–3 m legitimately needs a larger visual scale.
-    // The SVG already supports pan/zoom, so preserving the readable baseline
-    // is more important than forcing the whole model into one tiny viewport.
+    // Keep a finite upper safety bound for malformed/extreme coordinate data.
     const MAX_DIAGRAM_SCALE = 1500;
     if (scale > MAX_DIAGRAM_SCALE) scale = MAX_DIAGRAM_SCALE;
 
@@ -434,8 +433,8 @@ function createLabelLayer() {
                 const anchorAttr = it.textAnchor && it.textAnchor !== "start" ? ` text-anchor="${it.textAnchor}"` : "";
                 const rotateAttr = it.angle ? ` transform="rotate(${it.angle} ${baseX.toFixed(2)} ${baseY.toFixed(2)})"` : "";
                 const haloAttr = it.halo ? ` paint-order="stroke" stroke="white" stroke-width="${it.memberKey !== undefined ? 4 : 3}" stroke-linejoin="round"` : "";
-                const memberAttr = it.memberKey !== undefined ? ` class="sf-label" data-member="${it.memberKey}"` : "";
-                out += `<text${memberAttr} x="${baseX.toFixed(2)}" y="${baseY.toFixed(2)}" fill="${it.color}" font-family="Arial" font-size="${it.fontSize}" font-weight="${it.fontWeight}"${it.memberKey !== undefined ? ' text-rendering="geometricPrecision"' : ""}${anchorAttr}${rotateAttr}${haloAttr}>${it.text}</text>`;
+                const memberAttr = it.memberKey !== undefined ? ` class="sf-label" data-member="${escapeHtml(it.memberKey)}"` : "";
+                out += `<text${memberAttr} x="${baseX.toFixed(2)}" y="${baseY.toFixed(2)}" fill="${it.color}" font-family="Arial" font-size="${it.fontSize}" font-weight="${it.fontWeight}"${it.memberKey !== undefined ? ' text-rendering="geometricPrecision"' : ""}${anchorAttr}${rotateAttr}${haloAttr}>${escapeHtml(it.text)}</text>`;
             }
         });
         return out;
@@ -2118,7 +2117,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
             const leaderLine = gap > 3
                 ? `<line x1="${ax.toFixed(2)}" y1="${ay.toFixed(2)}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="${lb.color}" stroke-width="1.4" stroke-linecap="round"/>`
                 : "";
-            actionOverlaySvg += `<g class="sf-label" data-member="${lb.key}">${leaderLine}<circle cx="${ax.toFixed(2)}" cy="${ay.toFixed(2)}" r="3" fill="${lb.color}" stroke="white" stroke-width="1.2"/></g>`;
+            actionOverlaySvg += `<g class="sf-label" data-member="${escapeHtml(String(lb.key))}">${leaderLine}<circle cx="${ax.toFixed(2)}" cy="${ay.toFixed(2)}" r="3" fill="${lb.color}" stroke="white" stroke-width="1.2"/></g>`;
 
             labelLayer.addText({
                 x: best.cx, y: best.cy + fontSize * 0.32, text: lb.text,
@@ -2152,7 +2151,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
             const coordXText = `x=${Number(n.x).toFixed(2)}`;
             const coordYText = `y=${Number(n.y).toFixed(2)}`;
             svg += `<text x="${x}" y="${y - 1.2}" text-anchor="middle"
-                font-family="Arial" font-size="${nodeIdSize}" font-weight="700" fill="#000000">${n.id}</text>`;
+                font-family="Arial" font-size="${nodeIdSize}" font-weight="700" fill="#000000">${escapeHtml(String(n.id))}</text>`;
             svg += `<text x="${x}" y="${y + 2.1}" text-anchor="middle"
                 font-family="Arial" font-size="3.6666666667" font-weight="700" fill="#000000">${coordXText}</text>`;
             svg += `<text x="${x}" y="${y + 5.6}" text-anchor="middle"
@@ -2163,13 +2162,13 @@ function getStructureSVG(width, height, camera, mode = "model") {
             const idText = /^n/i.test(rawId) ? rawId : `N${rawId}`;
             const idSize = Math.max(3.8, Math.min(6.4, (2 * actionNodeRadius * 0.82) / (idText.length * 0.62)));
             svg += `<text x="${x}" y="${y + idSize * 0.35}" text-anchor="middle"
-                font-family="Arial" font-size="${idSize.toFixed(2)}" font-weight="700" fill="#000000">${idText}</text>`;
+                font-family="Arial" font-size="${idSize.toFixed(2)}" font-weight="700" fill="#000000">${escapeHtml(idText)}</text>`;
         } else {
             const nodeLabelSize = Math.max(5.8, Math.min(6.5, 21 / String(n.id).length));
             const coordXText = `x=${Number(n.x).toFixed(2)}`;
             const coordYText = `y=${Number(n.y).toFixed(2)}`;
             svg += `<text x="${x}" y="${y - 1.2}" text-anchor="middle"
-                font-family="Arial" font-size="${nodeLabelSize}" font-weight="700" fill="#000000">${n.id}</text>`;
+                font-family="Arial" font-size="${nodeLabelSize}" font-weight="700" fill="#000000">${escapeHtml(String(n.id))}</text>`;
             svg += `<text x="${x}" y="${y + 2.1}" text-anchor="middle"
                 font-family="Arial" font-size="3.6666666667" font-weight="700" fill="#000000">${coordXText}</text>`;
             svg += `<text x="${x}" y="${y + 5.6}" text-anchor="middle"
@@ -2220,12 +2219,15 @@ function getReactionLocalComponents(sa) {
     let cx = 1;
     let cy = 0;
 
-    // A support reaction is a global nodal quantity. For the diagram only,
-    // resolve it into the first connected member's local x-y axes. If the
-    // support is not connected to an element, fall back to the global axes.
-    const connectedElement = model.elements.find(
-        (el) => el.startNode === sa.nodeId || el.endNode === sa.nodeId,
-    );
+    // A support reaction is a global nodal quantity. For the optional local
+    // display, resolve it into the lowest-ID connected member's local x-y axes.
+    // If no element is connected, fall back to the global axes.
+    // Select a deterministic reference member. Array order can change when a
+    // user reorders elements; sorting by ID keeps these display-only local
+    // components stable and makes the reference axis explicit in the heading.
+    const connectedElement = model.elements
+        .filter((el) => String(el.startNode) === String(sa.nodeId) || String(el.endNode) === String(sa.nodeId))
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)))[0];
 
     if (connectedElement) {
         const n1 = model.nodes.find((n) => n.id === connectedElement.startNode);

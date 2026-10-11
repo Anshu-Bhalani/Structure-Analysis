@@ -15,20 +15,20 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <form id="elementTemplateForm">
                 <div class="grid grid-3">
-                    <div class="field"><label>Element Template ID</label><input id="elementTemplateId" placeholder="E1" value="E1"></div>
-                    <div class="field"><label>Moment of Inertia (I)</label><div class="input-wrap has-unit"><input id="elementI" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m⁴</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementI')">e</button></div></div>
-                    <div class="field"><label>Modulus of Elasticity (E)</label><div class="input-wrap has-unit"><input id="elementE" type="text" inputmode="decimal" placeholder="200" value="0.000001"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementE')">e</button></div></div>
-                    <div class="field plane-only-property"><label>Cross-sectional Area (A)</label><div class="input-wrap has-unit"><input id="elementA" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m²</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementA')">e</button></div></div>
-                    <div class="field"><label id="elementWeightLabel">Density / Self Weight</label><div class="input-wrap has-unit"><input id="elementDensity" type="text" inputmode="decimal" placeholder="0" value="0"><span id="elementWeightUnit" class="input-unit">kg/m³</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementDensity')">e</button></div></div>
+                    <div class="field"><label for="elementTemplateId">Element Template ID</label><input id="elementTemplateId" placeholder="E1" value="E1"></div>
+                    <div class="field"><label for="elementI">Moment of Inertia (I)</label><div class="input-wrap has-unit"><input id="elementI" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m⁴</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementI')">e</button></div></div>
+                    <div class="field"><label for="elementE">Modulus of Elasticity (E)</label><div class="input-wrap has-unit"><input id="elementE" type="text" inputmode="decimal" placeholder="200" value="200"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementE')">e</button></div></div>
+                    <div class="field plane-only-property"><label for="elementA">Cross-sectional Area (A)</label><div class="input-wrap has-unit"><input id="elementA" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m²</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementA')">e</button></div></div>
+                    <div class="field"><label for="elementDensity" id="elementWeightLabel">Density / Self Weight</label><div class="input-wrap has-unit"><input id="elementDensity" type="text" inputmode="decimal" placeholder="0" value="0"><span id="elementWeightUnit" class="input-unit">kg/m³</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementDensity')">e</button></div></div>
                 </div>
                 <div id="gridElementProperties" class="grid grid-2" style="display:none; margin-top:14px;">
-                    <div class="field"><label>Shear Modulus (G)</label><div class="input-wrap has-unit"><input id="elementG" type="text" inputmode="decimal" placeholder="80" value="0.000001"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementG')">e</button></div></div>
-                    <div class="field"><label>Torsional Constant (J)</label><div class="input-wrap has-unit"><input id="elementJ" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m⁴</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementJ')">e</button></div></div>
+                    <div class="field"><label for="elementG">Shear Modulus (G)</label><div class="input-wrap has-unit"><input id="elementG" type="text" inputmode="decimal" placeholder="80" value="80"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementG')">e</button></div></div>
+                    <div class="field"><label for="elementJ">Torsional Constant (J)</label><div class="input-wrap has-unit"><input id="elementJ" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m⁴</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementJ')">e</button></div></div>
                 </div>
                 <div class="field" style="margin-top:14px; max-width:380px;">
-                    <label>Self Weight Input Type</label>
+                    <label for="selfWeightType">Self Weight Input Type</label>
                     <select id="selfWeightType" onchange="updateElementWeightUnit()">
-                        <option value="density">Density</option>
+                        <option value="density">Density (requires A)</option>
                         <option value="lineWeight">Self Weight</option>
                     </select>
                 </div>
@@ -62,10 +62,10 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <form id="elementAssignmentForm">
                 <div class="grid grid-4">
-                    <div class="field"><label>Element ID</label><input id="elementId" placeholder="E1-1" value="E1-1"></div>
-                    <div class="field"><label>Element Template</label><select id="elementTemplateSelect"><option value="">Select template</option></select></div>
-                    <div class="field"><label>Start Node ID</label><select id="elementStartNode"><option value="">Select node</option></select></div>
-                    <div class="field"><label>End Node ID</label><select id="elementEndNode"><option value="">Select node</option></select></div>
+                    <div class="field"><label for="elementId">Element ID</label><input id="elementId" placeholder="E1-1" value="E1-1"></div>
+                    <div class="field"><label for="elementTemplateSelect">Element Template</label><select id="elementTemplateSelect"><option value="">Select template</option></select></div>
+                    <div class="field"><label for="elementStartNode">Start Node ID</label><select id="elementStartNode"><option value="">Select node</option></select></div>
+                    <div class="field"><label for="elementEndNode">End Node ID</label><select id="elementEndNode"><option value="">Select node</option></select></div>
                 </div>
                 <div class="form-footer">
                     <button type="button" class="btn btn-secondary" onclick="resetElementAssignmentForm()">Reset</button>
@@ -120,7 +120,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
     const validations = [
         [I, "Moment of Inertia (I)", gridMode ? { minExclusive: 0 } : { min: 0 }],
         [E_GPa, "Modulus of Elasticity (E)", { minExclusive: 0 }],
-        [density, "Density / Self Weight", { min: 0 }],
+        [density, gridMode && val("selfWeightType") === "lineWeight" ? "Grid Line Self Weight" : "Density / Self Weight", { min: 0 }],
     ];
     if (gridMode) {
         validations.push([G_GPa, "Shear Modulus (G)", { minExclusive: 0 }], [J, "Torsional Constant (J)", { minExclusive: 0 }]);
@@ -131,6 +131,13 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
         const error = requireFinite(value, label, options);
         if (error) return alert(error);
     }
+    // Grid templates intentionally have no cross-sectional area. Density
+    // (kg/m³) therefore cannot be converted to a line load for Grid self-
+    // weight. Reject it instead of storing a value the solver would silently
+    // multiply by a missing/zero A. The user must enter kN/m explicitly.
+    if (gridMode && val("selfWeightType") === "density" && density > 0) {
+        return alert("Grid elements do not use cross-sectional area A, so density (kg/m³) cannot be converted to self-weight. Select Self Weight and enter the line weight in kN/m.");
+    }
     if (!gridMode && A === 0 && I === 0) return alert("A and I cannot both be 0. Set A = 0 for a beam element or I = 0 for a truss element.");
     // Keep the two property sets separate. Values from the other solver mode
     // must not leak into the saved template when a template is edited.
@@ -140,7 +147,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
         J: gridMode ? J : undefined,
         A: gridMode ? undefined : A,
         density,
-        selfWeightType: val("selfWeightType")
+        selfWeightType: gridMode ? "lineWeight" : val("selfWeightType")
     };
     if (editingElementTemplateId !== null) {
         const updated = updateElementTemplate(editingElementTemplateId, data);
@@ -154,6 +161,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
 });
 function resetElementTemplateForm() {
     document.getElementById("elementTemplateForm").reset();
+    if (isGridAnalysisMode()) document.getElementById("selfWeightType").value = "lineWeight";
     updateElementWeightUnit();
     editingElementTemplateId = null;
     document.getElementById("elementTemplateSubmitBtn").textContent = "Create Element Template";
@@ -180,7 +188,7 @@ function renderElementTemplates() {
     const rows = model.elementTemplates.filter((e) => e.id.toLowerCase().includes(search));
     if (!rows.length) return showEmpty("elementTemplateTable", isGridAnalysisMode() ? 7 : 6);
     tbody.innerHTML = rows.map((e) =>
-        `<tr data-sort-collection="elementTemplates" data-sort-id="${escapeHtml(encodeURIComponent(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-blue">${escapeHtml(e.id)}</span></td><td>${formatNum(e.I)}</td><td>${formatNum(Number(e.E_GPa))}</td><td class="grid-only-property" style="display:none;">${e.G_GPa === undefined || e.G_GPa === "" ? "—" : formatNum(Number(e.G_GPa))}</td><td class="grid-only-property" style="display:none;">${e.J === undefined || e.J === "" ? "—" : formatNum(Number(e.J))}</td><td class="plane-only-property">${e.A === undefined || e.A === "" ? "—" : formatNum(Number(e.A))}</td><td>${formatNum(e.density)} ${e.selfWeightType === "density" ? "kg/m³" : "kN/m"}</td><td><div class="table-actions"><button class="icon-btn" onclick="editElementTemplate('${encodeURIComponent(e.id)}')">✎</button><button class="icon-btn" onclick="deleteItem('elementTemplates','${encodeURIComponent(e.id)}','id')">×</button></div></td></tr>`
+        `<tr data-sort-collection="elementTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-blue">${escapeHtml(e.id)}</span></td><td>${formatNum(e.I)}</td><td>${formatNum(Number(e.E_GPa))}</td><td class="grid-only-property" style="display:none;">${e.G_GPa === undefined || e.G_GPa === "" ? "—" : formatNum(Number(e.G_GPa))}</td><td class="grid-only-property" style="display:none;">${e.J === undefined || e.J === "" ? "—" : formatNum(Number(e.J))}</td><td class="plane-only-property">${e.A === undefined || e.A === "" ? "—" : formatNum(Number(e.A))}</td><td>${formatNum(e.density)} ${e.selfWeightType === "density" ? "kg/m³" : "kN/m"}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit element template ${escapeHtml(e.id)}" title="Edit element template ${escapeHtml(e.id)}" onclick="editElementTemplate('${encodeInlineArgument(e.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete element template ${escapeHtml(e.id)}" title="Delete element template ${escapeHtml(e.id)}" onclick="deleteItem('elementTemplates','${encodeInlineArgument(e.id)}','id')">×</button></div></td></tr>`
     ).join("");
 }
 
@@ -255,6 +263,6 @@ function renderElements() {
     const tbody = document.getElementById("elementTable");
     if (!model.elements.length) return showEmpty("elementTable", 5);
     tbody.innerHTML = model.elements.map((e) =>
-        `<tr data-sort-collection="elements" data-sort-id="${escapeHtml(encodeURIComponent(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-green">${escapeHtml(e.id)}</span></td><td>${escapeHtml(e.templateId)}</td><td>${escapeHtml(e.startNode)}</td><td>${escapeHtml(e.endNode)}</td><td><div class="table-actions"><button class="icon-btn" onclick="editElement('${encodeURIComponent(e.id)}')">✎</button><button class="icon-btn" onclick="deleteItem('elements','${encodeURIComponent(e.id)}','id')">×</button></div></td></tr>`
+        `<tr data-sort-collection="elements" data-sort-id="${escapeHtml(encodeInlineArgument(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-green">${escapeHtml(e.id)}</span></td><td>${escapeHtml(e.templateId)}</td><td>${escapeHtml(e.startNode)}</td><td>${escapeHtml(e.endNode)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit element ${escapeHtml(e.id)}" title="Edit element ${escapeHtml(e.id)}" onclick="editElement('${encodeInlineArgument(e.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete element ${escapeHtml(e.id)}" title="Delete element ${escapeHtml(e.id)}" onclick="deleteItem('elements','${encodeInlineArgument(e.id)}','id')">×</button></div></td></tr>`
     ).join("");
 }

@@ -24,13 +24,13 @@ function solveStep2(ctx, step1) {
         const jointRows = joints.map((n) => {
             const d = step1.dofMap[n.nodeId];
             const label = (idx) => step1.isRestrained[idx] ? `R (${formatNum(step1.prescribedDisp[idx])})` : `D${idx + 1}`;
-            return `<tr><td>${escapeHtml(n.nodeId)}</td><td>${formatNum(n.x)}</td><td>${formatNum(n.y)}</td><td>${formatNum(n.z)}</td><td>${label(d.x)}</td><td>${label(d.y)}</td><td>${label(d.z)}</td></tr>`;
+            return `<tr><td>${escapeHtml(n.nodeId)}</td><td>${formatNum(n.x)}</td><td>${formatNum(n.y)}</td><td>${label(d.x)}</td><td>${label(d.y)}</td><td>${label(d.z)}</td></tr>`;
         }).join("");
-        const memberRows = members.map((m) => `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(m.length)}</td><td>${formatNum(m.E_GPa)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(m.I)}</td><td>${formatNum(m.J)}</td><td>${formatNum(m.A)}</td></tr>`).join("");
+        const memberRows = members.map((m) => `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(m.length)}</td><td>${formatNum(m.E_GPa)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(m.I)}</td><td>${formatNum(m.J)}</td></tr>`).join("");
         const html = `<div class="calc-step"><h4>Step 2: Grid Joint and Member Properties</h4>
-            <h5>Joint Properties</h5><div class="table-wrap" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Joint</th><th>X (m)</th><th>Y (m)</th><th>Z (m)</th><th>θX</th><th>θY</th><th>ΔZ</th></tr></thead><tbody>${jointRows}</tbody></table></div>
-            <h5>Member Properties</h5><div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Member</th><th>Start Node</th><th>End Node</th><th>L (m)</th><th>E (GPa)</th><th>G (GPa)</th><th>I (m⁴)</th><th>J (m⁴)</th><th>A (m²)</th></tr></thead><tbody>${memberRows}</tbody></table></div>
-            <h5>Grid Stiffness Terms</h5><p>Computed from the supplied Grid engine: m = GJ/L, a = 12EI/L³, b = 6EI/L², c = 4EI/L. Grid uses I and J; A is used only for density-based self-weight.</p></div>`;
+            <h5>Joint Properties</h5><div class="table-wrap" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Joint</th><th>X (m)</th><th>Y (m)</th><th>θX</th><th>θY</th><th>ΔZ</th></tr></thead><tbody>${jointRows}</tbody></table></div>
+            <h5>Member Properties</h5><div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Member</th><th>Start Node</th><th>End Node</th><th>L (m)</th><th>E (GPa)</th><th>G (GPa)</th><th>I (m⁴)</th><th>J (m⁴)</th></tr></thead><tbody>${memberRows}</tbody></table></div>
+            <h5>Grid Stiffness Terms</h5><p>Computed from the Grid engine: m = GJ/L, a = 12EI/L³, b = 6EI/L², c = 4EI/L. Grid self-weight, when needed, must be entered directly as a line weight in kN/m.</p></div>`;
         return { html };
     }
     const { dofMap, isRestrained, prescribedDisp, heavyModel } = step1;
@@ -59,7 +59,7 @@ function solveStep2(ctx, step1) {
                     ? "0"
                     : prescribedDisp[d.z]
                 : "D" + (d.z + 1);
-        jointTableRows += `<tr><td>${i + 1} (${n.id})</td><td>${n.x}</td><td>${n.y}</td><td>${n.z}</td><td>${dxStr}</td><td>${dyStr}</td><td>${dzStr}</td></tr>`;
+        jointTableRows += `<tr><td>${i + 1} (${escapeHtml(n.id)})</td><td>${formatNum(n.x)}</td><td>${formatNum(n.y)}</td><td>${formatNum(n.z)}</td><td>${escapeHtml(dxStr)}</td><td>${escapeHtml(dyStr)}</td><td>${escapeHtml(dzStr)}</td></tr>`;
     });
 
     let memberTableRows = "";
@@ -95,7 +95,7 @@ function solveStep2(ctx, step1) {
         let j_val = b_val * cx;
 
         memberTableRows += `<tr>
-            <td>${index + 1}</td><td>${el.startNode}</td><td>${el.endNode}</td>
+            <td>${index + 1}</td><td>${escapeHtml(el.startNode)}</td><td>${escapeHtml(el.endNode)}</td>
             <td>${formatNum(A)}</td><td>${formatNum(E / 1e6)}</td><td>${formatNum(I)}</td><td>${formatNum(L)}</td>
             <td>${formatNum(d_val)}</td><td>${formatNum(cx)}</td><td>${formatNum(cy)}</td>
             <td>${formatNum(dCx2)}</td><td>${formatNum(dCy2)}</td><td>${formatNum(dCxCy)}</td>

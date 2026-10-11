@@ -67,7 +67,7 @@ function solveStep4(ctx, step1, step3) {
     for (let i = 0; i < totalDof; i++) {
         // Intentional beam/truss dummy DOFs are excluded from this warning.
         if (!structurallyRelevantDof[i]) continue;
-        if (Math.abs(SJ[i][i]) >= 1e-10 || isRestrained[i]) continue;
+        if (!isNumericallyZeroStiffnessDof(SJ, i) || isRestrained[i]) continue;
 
         const info = dofInfo?.[i] || { nodeId: `DOF ${i + 1}`, dofLabel: "DOF" };
 

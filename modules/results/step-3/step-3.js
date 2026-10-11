@@ -320,7 +320,7 @@ function solveStep3(ctx, step1) {
         }
 
         if (!heavyModel) {
-            html += `<h5>Element ${el.id}</h5>`;
+            html += `<h5>Element ${escapeHtml(el.id)}</h5>`;
         }
         if (!heavyModel) {
             html += matrixEqHTML(

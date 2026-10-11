@@ -54,7 +54,8 @@
             popover: {
                 title: "Create a model",
                 description:
-                    "Click <b>New Model</b> to begin. You will name the model and choose its structure type — " +
+                    "This highlighted button starts a new project after you finish or skip the tour. " +
+                    "You will name the model and choose its structure type — " +
                     "<b>Beam / Truss / Frame</b> (2D) or <b>Grid</b>. The type is fixed once the model is created.",
                 side: "bottom",
                 align: "end",
@@ -68,7 +69,7 @@
                 description:
                     "<b>Import Model</b> loads a JSON file you exported earlier. " +
                     "<b>Export All Models</b> downloads every saved model in one file — handy as a backup or for sharing. " +
-                    "<b>Replay Tutorial</b> restarts this tour whenever you need it.",
+                    "After the tour closes, use the floating <b>?</b> button to replay the tutorial.",
                 side: "bottom",
                 align: "end",
             },
@@ -80,7 +81,7 @@
                 title: "Current model",
                 description:
                     "This strip shows the model you are working on, its type and whether it has been saved. " +
-                    "Use <b>Save Current</b>, <b>Export Current</b> or <b>Start New Model</b> from here.",
+                    "After the tour, use <b>Save Current</b>, <b>Export Current</b> or <b>Start New Model</b> from here.",
                 side: "bottom",
                 align: "center",
             },
@@ -91,8 +92,8 @@
             popover: {
                 title: "Your saved models",
                 description:
-                    "Saved models appear here as cards with a preview of the structure. " +
-                    "Open one to keep working on it, or select several to export or delete them together.",
+                    "Saved models appear here as cards with a preview of the structure. After the tour, open one to keep working on it, " +
+                    "or select several to export or delete them together.",
                 side: "top",
                 align: "center",
             },
@@ -152,8 +153,9 @@
             popover: {
                 title: "1 · Nodes",
                 description:
-                    "Use the form below to define each joint with an ID and its X, Y and Z coordinates " +
-                    "(Z is ignored in 2D plane models). Element lengths are calculated automatically from the node coordinates.",
+                    "Use the form below after the tour to define each joint with an ID and its X, Y and Z coordinates. " +
+                    "Z is ignored in both 2D plane and Grid geometry; Grid members lie in the XY plane. " +
+                    "Element lengths are calculated automatically from X and Y coordinates.",
                 side: "bottom",
                 align: "start",
             },
@@ -190,7 +192,8 @@
                 title: "4 · Loads and moments",
                 description:
                     "Loads are grouped into <b>load cases</b> (Dead, Live, Self Weight): create a case in " +
-                    "<b>Load Cases</b> first, then add nodal or element loads with the form below. Moments " +
+                    "<b>Load Cases</b> first, then add nodal or element loads with the form below. For Grid models, " +
+                    "self-weight must be entered directly as a line weight in kN/m. Moments " +
                     "(torsions for Grid models) work the same way in <b>Moment Cases</b> and <b>Moments</b>.",
                 side: "bottom",
                 align: "start",
@@ -202,9 +205,9 @@
             popover: {
                 title: "5 · Run the analysis",
                 description:
-                    "Choose the active load case and moment case below, then click <b>Run Analysis</b>. " +
-                    "The solver runs in your browser; the calculation steps, reactions and diagrams " +
-                    "then appear on this page.",
+                    "After you finish or skip the tour, choose the active load case and moment case, then use " +
+                    "<b>Run Analysis</b>. The solver runs in your browser; the calculation steps, reactions " +
+                    "and diagrams then appear on this page. Press <b>Next</b> to continue this guided tour.",
                 side: "bottom",
                 align: "end",
             },
@@ -226,9 +229,9 @@
             popover: {
                 title: "You are ready to go",
                 description:
-                    "That covers the essentials — create your first model to get started." +
-                    "<br><br>Need a refresher? Click the <b>?</b> button at the bottom-right of the screen " +
-                    "at any time to replay this tour.",
+                    "That covers the essentials — finish the tour, then create your first model to get started." +
+                    "<br><br>Need a refresher? Use the <b>?</b> button at the bottom-right of the screen " +
+                    "after the tour closes to replay it.",
                 doneBtnText: "Finish",
             },
         },
@@ -244,8 +247,8 @@
     function storageUsable() {
         try {
             const probe = "__structuralTourProbe__";
-            localStorage.setItem(probe, "1");
-            localStorage.removeItem(probe);
+            if (!safeStorageSetItem(probe, "1")) return false;
+            safeStorageRemoveItem(probe);
             return true;
         } catch (e) {
             return false;
@@ -254,7 +257,7 @@
 
     function hasSeen() {
         try {
-            return localStorage.getItem(STORAGE_KEY) !== null;
+            return safeStorageGetItem(STORAGE_KEY) !== null;
         } catch (e) {
             return false;
         }
@@ -262,7 +265,7 @@
 
     function saveState(status) {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ status: status, updatedAt: new Date().toISOString() }));
+            safeStorageSetItem(STORAGE_KEY, JSON.stringify({ status: status, updatedAt: new Date().toISOString() }));
         } catch (e) {
             /* ignore — see storageUsable() */
         }
@@ -270,7 +273,7 @@
 
     function resetSeen() {
         try {
-            localStorage.removeItem(STORAGE_KEY);
+            safeStorageRemoveItem(STORAGE_KEY);
         } catch (e) {
             /* ignore */
         }

@@ -70,6 +70,8 @@ function modelPreviewSVG(data) {
     const elements = Array.isArray(data?.elements) ? data.elements : [];
     const supports = Array.isArray(data?.supportAssignments) ? data.supportAssignments : [];
     const loads = Array.isArray(data?.loads) ? data.loads : [];
+    const moments = Array.isArray(data?.moments) ? data.moments : [];
+    const isGridModel = data?.analysisMode === "grid";
 
     if (!nodes.length) {
         return `<svg viewBox="0 0 760 260" preserveAspectRatio="xMidYMid meet" aria-label="No structure defined">
@@ -117,10 +119,92 @@ function modelPreviewSVG(data) {
         return `<polygon points="${(x-9).toFixed(1)},${(y+14).toFixed(1)} ${(x+9).toFixed(1)},${(y+14).toFixed(1)} ${x.toFixed(1)},${(y+2).toFixed(1)}" fill="#94a3b8" opacity="0.9"/>`;
     }).join("");
 
-    const loadNodes = new Set(loads.filter(ld => ld && ld.type === "Nodal Load").map(ld => String(ld.nodeId)));
-    const loadMarks = nodes.filter(n => loadNodes.has(String(n.id))).map(n => {
-        const x=sx(Number(n.x)||0), y=sy(Number(n.y)||0);
-        return `<g><line x1="${x.toFixed(1)}" y1="${(y-27).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(y-6).toFixed(1)}" stroke="#dc2626" stroke-width="2"/><polygon points="${(x-5).toFixed(1)},${(y-9).toFixed(1)} ${(x+5).toFixed(1)},${(y-9).toFixed(1)} ${x.toFixed(1)},${(y-2).toFixed(1)}" fill="#dc2626"/></g>`;
+    const getElementPoint = (element, distance) => {
+        if (!element) return null;
+        const a = nodeById[String(element.startNode)], b = nodeById[String(element.endNode)];
+        if (!a || !b) return null;
+        const x1 = Number(a.x) || 0, y1 = Number(a.y) || 0;
+        const x2 = Number(b.x) || 0, y2 = Number(b.y) || 0;
+        const L = Math.hypot(x2 - x1, y2 - y1);
+        if (!(L > 0)) return null;
+        const t = Math.max(0, Math.min(1, (Number(distance) || 0) / L));
+        return { x: sx(x1 + (x2 - x1) * t), y: sy(y1 + (y2 - y1) * t), cx: (x2 - x1) / L, cy: (y2 - y1) / L, length: L };
+    };
+    const forceVector = (load, element, end = false) => {
+        let fx = Number(end ? (load.FxEnd ?? load.Fx) : load.Fx) || 0;
+        let fy = Number(end ? (load.FyEnd ?? load.Fy) : load.Fy) || 0;
+        const axis = load.axisSystem || "Global";
+        if (axis === "Local" && element) {
+            const p = getElementPoint(element, 0);
+            if (p) return { x: fx * p.cx - fy * p.cy, y: fx * p.cy + fy * p.cx };
+        }
+        if (axis === "Angled") {
+            const angle = (Number(load.angle) || 0) * Math.PI / 180;
+            [fx, fy] = [fx * Math.cos(angle) - fy * Math.sin(angle), fx * Math.sin(angle) + fy * Math.cos(angle)];
+        }
+        return { x: fx, y: fy };
+    };
+    const drawForceArrow = (x, y, fx, fy, color = "#dc2626") => {
+        const magnitude = Math.hypot(fx, fy);
+        if (!(magnitude > 1e-12)) return "";
+        const ux = fx / magnitude, uy = -fy / magnitude;
+        const tailX = x - ux * 23, tailY = y - uy * 23;
+        const tipX = x - ux * 5, tipY = y - uy * 5;
+        const px = -uy, py = ux;
+        return `<g><line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}" stroke="${color}" stroke-width="1.8"/><polygon points="${tipX.toFixed(1)},${tipY.toFixed(1)} ${(tipX-ux*5+px*3).toFixed(1)},${(tipY-uy*5+py*3).toFixed(1)} ${(tipX-ux*5-px*3).toFixed(1)},${(tipY-uy*5-py*3).toFixed(1)}" fill="${color}"/></g>`;
+    };
+    const drawGridLoad = (x, y, fz) => {
+        if (Math.abs(fz) <= 1e-12) return "";
+        const r = Math.min(7.5, 4 + Math.sqrt(Math.abs(fz)) * 0.18);
+        const color = fz < 0 ? "#dc2626" : "#16a34a";
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${fz < 0 ? color : "#ffffff"}" stroke="${color}" stroke-width="2"/>`;
+    };
+    const loadMarks = loads.map((load) => {
+        if (!load) return "";
+        const element = elements.find((el) => String(el.id) === String(load.elementId));
+        if (load.type === "Nodal Load") {
+            const node = nodeById[String(load.nodeId)];
+            if (!node) return "";
+            const x = sx(Number(node.x) || 0), y = sy(Number(node.y) || 0);
+            return isGridModel ? drawGridLoad(x, y, Number(load.Fz) || 0) : (() => { const f = forceVector(load, null); return drawForceArrow(x, y, f.x, f.y); })();
+        }
+        if (!element) return "";
+        const start = Math.max(0, Number(load.distance) || 0);
+        const end = load.type === "Element UDL" ? Math.max(start, Number(load.distanceEnd) || getElementPoint(element, 0)?.length || start) : start;
+        const positions = load.type === "Element UDL" ? [0.2, 0.5, 0.8].map(frac => start + (end - start) * frac) : [start];
+        return positions.map((distance) => {
+            const point = getElementPoint(element, distance);
+            if (!point) return "";
+            if (isGridModel) {
+                const q1 = Number(load.Fz) || 0, q2 = Number(load.FzEnd ?? load.Fz) || 0;
+                const t = end > start ? (distance - start) / (end - start) : 0;
+                return drawGridLoad(point.x, point.y, q1 + (q2 - q1) * t);
+            }
+            const f1 = forceVector(load, element), f2 = forceVector(load, element, true);
+            const t = end > start ? (distance - start) / (end - start) : 0;
+            return drawForceArrow(point.x, point.y, f1.x + (f2.x - f1.x) * t, f1.y + (f2.y - f1.y) * t);
+        }).join("");
+    }).join("");
+
+    const momentMarks = moments.map((moment) => {
+        if (!moment) return "";
+        const nodal = moment.type === "Nodal Moment";
+        const node = nodal ? nodeById[String(moment.nodeId)] : null;
+        const element = nodal ? null : elements.find((el) => String(el.id) === String(moment.elementId));
+        const point = node
+            ? { x: sx(Number(node.x) || 0), y: sy(Number(node.y) || 0) }
+            : getElementPoint(element, moment.distance);
+        if (!point) return "";
+        if (isGridModel) {
+            const mx = Number(moment.Mx) || 0, my = Number(moment.My) || 0;
+            const labels = [];
+            if (Math.abs(mx) > 1e-12) labels.push(mx > 0 ? "→" : "←");
+            if (Math.abs(my) > 1e-12) labels.push(my > 0 ? "↑" : "↓");
+            return labels.length ? `<text x="${(point.x+9).toFixed(1)}" y="${(point.y-11).toFixed(1)}" font-size="13" font-weight="800" fill="#7c3aed">${labels.join("")}</text>` : "";
+        }
+        const mz = Number(moment.Mz) || 0;
+        if (Math.abs(mz) <= 1e-12) return "";
+        return `<text x="${(point.x+8).toFixed(1)}" y="${(point.y-9).toFixed(1)}" font-size="15" font-weight="800" fill="#7c3aed">${mz > 0 ? "↺" : "↻"}</text>`;
     }).join("");
 
     const nodeMarks = nodes.map(n => {
@@ -134,6 +218,7 @@ function modelPreviewSVG(data) {
         ${elementLines}
         ${supportMarks}
         ${loadMarks}
+        ${momentMarks}
         ${nodeMarks}
     </svg>`;
 }
@@ -198,7 +283,7 @@ function renderModelLibrary() {
         const isGridModel = data.analysisMode === "grid";
         const modelTypeLabel = isGridModel ? "Grid Model" : "Beam / Truss / Frame Model";
         const modelTypeClass = isGridModel ? "badge-green" : "badge-blue";
-        const safeId = escapeHtml(String(item.id || "")).replace(/'/g, "&#39;");
+        const safeId = encodeInlineArgument(String(item.id || ""));
         const isSelected = selectedModelIds.has(item.id);
         return `<article class="model-card${isCurrent ? " current" : ""}${isSelected ? " selected" : ""}">
             <div class="model-card-preview">
@@ -218,14 +303,14 @@ function renderModelLibrary() {
                     <div class="model-card-stat"><div class="model-card-stat-label">Nodes</div><div class="model-card-stat-value">${nodes}</div></div>
                     <div class="model-card-stat"><div class="model-card-stat-label">Elements</div><div class="model-card-stat-value">${elements}</div></div>
                     <div class="model-card-stat"><div class="model-card-stat-label">Loads</div><div class="model-card-stat-value">${loads}</div></div>
-                    <div class="model-card-stat"><div class="model-card-stat-label">Moments</div><div class="model-card-stat-value">${moments}</div></div>
+                    <div class="model-card-stat"><div class="model-card-stat-label">${isGridModel ? "Torsions" : "Moments"}</div><div class="model-card-stat-value">${moments}</div></div>
                 </div>
                 <div class="model-card-foot">
                     <span class="model-card-saved">Saved ${escapeHtml(formatModelSavedTime(item.updatedAt))}</span>
                     <div class="model-card-actions">
-                        <button type="button" class="icon-btn" onclick="openSavedModel('${safeId}')">Open</button>
-                        <button type="button" class="icon-btn" onclick="exportSavedModel('${safeId}')">Export</button>
-                        <button type="button" class="icon-btn" onclick="deleteSavedModel('${safeId}')">Delete</button>
+                        <button type="button" class="icon-btn" onclick="openSavedModelFromInline('${safeId}')">Open</button>
+                        <button type="button" class="icon-btn" onclick="exportSavedModelFromInline('${safeId}')">Export</button>
+                        <button type="button" class="icon-btn" onclick="deleteSavedModelFromInline('${safeId}')">Delete</button>
                     </div>
                 </div>
             </div>
@@ -245,13 +330,44 @@ function getSortedLibraryModels() {
     });
 }
 
-function toggleModelSelection(id, checked) {
+function toggleModelSelection(encodedId, checked) {
+    let id;
+    try {
+        id = decodeURIComponent(encodedId);
+    } catch (error) {
+        console.error("Invalid encoded model ID in selection control.", error);
+        return;
+    }
     if (checked) selectedModelIds.add(id);
     else selectedModelIds.delete(id);
     const card = Array.from(document.querySelectorAll("#modelLibraryGrid .model-card input[type=checkbox]"))
-        .find((cb) => (cb.getAttribute("onchange") || "").includes(`'${id}'`));
+        .find((cb) => (cb.getAttribute("onchange") || "").includes(`'${encodedId}'`));
     if (card) card.closest(".model-card").classList.toggle("selected", !!checked);
     updateModelSelectionToolbar();
+}
+
+function decodeSavedModelId(encodedId) {
+    try {
+        return decodeURIComponent(encodedId);
+    } catch (error) {
+        console.error("Invalid encoded saved-model ID.", error);
+        return null;
+    }
+}
+
+function openSavedModelFromInline(encodedId) {
+    const id = decodeSavedModelId(encodedId);
+    if (id !== null) openSavedModel(id);
+}
+
+function exportSavedModelFromInline(encodedId) {
+    const id = decodeSavedModelId(encodedId);
+    if (id !== null) exportSavedModel(id);
+}
+
+function deleteSavedModelFromInline(encodedId) {
+    const id = decodeSavedModelId(encodedId);
+    if (id !== null) deleteSavedModel(id);
 }
 
 function toggleSelectAllModels() {
@@ -340,6 +456,41 @@ function deleteSelectedModels() {
     renderModelLibrary();
 }
 
+// Choose a batch-PDF analysis case only when the saved model makes that
+// choice unambiguous. Never silently export a different load case or omit an
+// available self-weight case just because its case has no explicit load rows.
+function chooseUnambiguousBatchCases(modelData) {
+    const loadCases = Array.isArray(modelData?.loadCases) ? modelData.loadCases : [];
+    const loads = Array.isArray(modelData?.loads) ? modelData.loads : [];
+    const templates = Array.isArray(modelData?.elementTemplates) ? modelData.elementTemplates : [];
+    const elements = Array.isArray(modelData?.elements) ? modelData.elements : [];
+    const momentCases = Array.isArray(modelData?.momentCases) ? modelData.momentCases : [];
+    const moments = Array.isArray(modelData?.moments) ? modelData.moments : [];
+    const usedTemplateIds = new Set(elements.map((element) => String(element?.templateId ?? "")));
+    const hasSelfWeightData = templates.some((template) => usedTemplateIds.has(String(template?.id ?? "")) && Number(template?.density) > 0);
+    const selfWeightCases = loadCases.filter((loadCase) => loadCase?.type === "Self Weight");
+    if (hasSelfWeightData && selfWeightCases.length !== 1) {
+        return { ok: false, message: "Batch PDF export cannot safely choose the self-weight analysis: this model needs exactly one Self Weight case. Open the model and export its Results after choosing the intended case." };
+    }
+
+    const loadCaseIdsWithLoads = [...new Set(loads.map((load) => String(load?.loadCaseId ?? "")).filter(Boolean))];
+    const candidateLoadCaseIds = new Set(loadCaseIdsWithLoads);
+    if (hasSelfWeightData && selfWeightCases.length === 1) candidateLoadCaseIds.add(String(selfWeightCases[0].id));
+    if (candidateLoadCaseIds.size > 1) {
+        return { ok: false, message: "Batch PDF export cannot safely guess between multiple load cases. Open the model and export its Results after selecting the intended case." };
+    }
+
+    const momentCaseIdsWithMoments = [...new Set(moments.map((moment) => String(moment?.momentCaseId ?? "")).filter(Boolean))];
+    if (momentCaseIdsWithMoments.length > 1) {
+        return { ok: false, message: "Batch PDF export cannot safely guess between multiple moment/torsion cases. Open the model and export its Results after selecting the intended case." };
+    }
+    return {
+        ok: true,
+        loadCaseId: hasSelfWeightData ? String(selfWeightCases[0].id) : (loadCaseIdsWithLoads[0] || ""),
+        momentCaseId: momentCaseIdsWithMoments[0] || "",
+    };
+}
+
 // Loads a model's input data into the working model and solves it without any
 // dialogs. Returns { ok, message, sections, caseLabel }.
 function solveModelSilently(data) {
@@ -353,11 +504,10 @@ function solveModelSilently(data) {
         migrateUnitSystem();
         ensureBuiltInSupportTemplates();
 
-        // Default analysis cases: first case that actually holds loads/moments.
-        const lc = model.loadCases.find((c) => model.loads.some((l) => String(l.loadCaseId || "") === String(c.id)));
-        const mc = model.momentCases.find((c) => model.moments.some((m) => String(m.momentCaseId || "") === String(c.id)));
-        activeLoadCaseId = lc ? lc.id : "";
-        activeMomentCaseId = mc ? mc.id : "";
+        const caseChoice = chooseUnambiguousBatchCases(model);
+        if (!caseChoice.ok) return { ok: false, message: caseChoice.message };
+        activeLoadCaseId = caseChoice.loadCaseId;
+        activeMomentCaseId = caseChoice.momentCaseId;
         syncActiveAnalysisCaseSelectors();
 
         analysisState.status = "not-run";

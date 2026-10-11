@@ -15,10 +15,10 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <form id="nodeForm">
                 <div class="grid grid-4">
-                    <div class="field"><label>Node ID</label><input id="nodeId" placeholder="N1" value="N1"></div>
-                    <div class="field"><label>X Coordinate</label><div class="input-wrap has-unit"><input id="nodeX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeX')">e</button></div></div>
-                    <div class="field"><label>Y Coordinate</label><div class="input-wrap has-unit"><input id="nodeY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeY')">e</button></div></div>
-                    <div class="field"><label>Z Coordinate</label><div class="input-wrap has-unit"><input id="nodeZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeZ')">e</button></div></div>
+                    <div class="field"><label for="nodeId">Node ID</label><input id="nodeId" placeholder="N1" value="N1"></div>
+                    <div class="field"><label for="nodeX">X Coordinate</label><div class="input-wrap has-unit"><input id="nodeX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeX')">e</button></div></div>
+                    <div class="field"><label for="nodeY">Y Coordinate</label><div class="input-wrap has-unit"><input id="nodeY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeY')">e</button></div></div>
+                    <div class="field plane-only-property"><label for="nodeZ">Z Coordinate (unused in 2D analysis)</label><div class="input-wrap has-unit"><input id="nodeZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeZ')">e</button></div></div>
                 </div>
                 <div class="form-footer">
                     <button type="button" class="btn btn-secondary" onclick="resetNodeForm()">Reset</button>
@@ -36,7 +36,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Node ID</th><th>X (m)</th><th>Y (m)</th><th>Z (m)</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Node ID</th><th>X (m)</th><th>Y (m)</th><th class="plane-only-property">Z (m)</th><th>Actions</th></tr></thead>
                     <tbody id="nodeTable"></tbody>
                 </table>
             </div>
@@ -52,6 +52,17 @@ let editingNodeId = null;
 function createNode(id, x, y, z) {
     model.nodes.push({ id, x, y, z });
     markAnalysisInvalidated();
+}
+
+function findCollapsedConnectedElement(nodeId, x, y) {
+    return model.elements.find((element) => {
+        let otherNodeId = null;
+        if (String(element.startNode) === String(nodeId)) otherNodeId = element.endNode;
+        else if (String(element.endNode) === String(nodeId)) otherNodeId = element.startNode;
+        if (otherNodeId === null) return false;
+        const otherNode = model.nodes.find((candidate) => String(candidate.id) === String(otherNodeId));
+        return !!otherNode && Number(otherNode.x) === Number(x) && Number(otherNode.y) === Number(y);
+    }) || null;
 }
 
 function updateNode(existingId, id, x, y, z) {
@@ -78,11 +89,15 @@ function updateNode(existingId, id, x, y, z) {
 document.getElementById("nodeForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const id = val("nodeId");
-    const x = num("nodeX"), y = num("nodeY"), z = num("nodeZ");
+    const x = num("nodeX"), y = num("nodeY"), z = isGridAnalysisMode() ? 0 : num("nodeZ");
     const validationError = validateNodeInput(id, x, y, z, editingNodeId);
     if (validationError) return alert(validationError);
 
     if (editingNodeId !== null) {
+        const collapsedElement = findCollapsedConnectedElement(editingNodeId, x, y);
+        if (collapsedElement) {
+            return alert(`Node edit would make element "${collapsedElement.id}" zero-length. Move the node to a different X/Y coordinate before saving.`);
+        }
         const updated = updateNode(editingNodeId, id, x, y, z);
         if (!updated) {
             editingNodeId = null;
@@ -114,7 +129,7 @@ function renderNodes() {
     tbody.innerHTML = rows
         .map(
             (n) =>
-                `<tr data-sort-collection="nodes" data-sort-id="${escapeHtml(encodeURIComponent(n.id))}"><td>${sortHandle(n.id)}<span class="badge badge-blue">${escapeHtml(n.id)}</span></td><td>${escapeHtml(n.x)}</td><td>${escapeHtml(n.y)}</td><td>${escapeHtml(n.z)}</td><td><div class="table-actions"><button class="icon-btn" onclick="editNode('${encodeURIComponent(n.id)}')">✎</button><button class="icon-btn" onclick="deleteItem('nodes','${encodeURIComponent(n.id)}','id')">×</button></div></td></tr>`,
+                `<tr data-sort-collection="nodes" data-sort-id="${escapeHtml(encodeInlineArgument(n.id))}"><td>${sortHandle(n.id)}<span class="badge badge-blue">${escapeHtml(n.id)}</span></td><td>${escapeHtml(n.x)}</td><td>${escapeHtml(n.y)}</td><td class="plane-only-property" style="display:${isGridAnalysisMode() ? "none" : "table-cell"}">${escapeHtml(n.z ?? 0)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit node ${escapeHtml(n.id)}" title="Edit node ${escapeHtml(n.id)}" onclick="editNode('${encodeInlineArgument(n.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete node ${escapeHtml(n.id)}" title="Delete node ${escapeHtml(n.id)}" onclick="deleteItem('nodes','${encodeInlineArgument(n.id)}','id')">×</button></div></td></tr>`,
         )
         .join("");
 }
