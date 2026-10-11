@@ -148,9 +148,7 @@ document.getElementById("momentForm").addEventListener("submit", (e) => {
     if (caseError) return alert(caseError);
     const type = val("momentType");
     if (!["Nodal Moment", "Element Moment"].includes(type)) return alert(gridMode ? "Invalid torsion type." : "Invalid Moment Type.");
-    let Mx = num("momentX"), My = num("momentY");
-    const Mz = gridMode ? 0 : num("momentZ");
-    if (!gridMode) { if (Mx === "") Mx = 0; if (My === "") My = 0; } // Mx/My are ignored by the plane solver
+    const Mx = gridMode ? num("momentX") : 0, My = gridMode ? num("momentY") : 0, Mz = gridMode ? 0 : num("momentZ");
     const componentsToValidate = gridMode ? [[Mx, "Mx (Right/Left torsion)"], [My, "My (Up/Down torsion)"]] : [[Mz, "Mz"]];
     for (const [value, label] of componentsToValidate) { const error = requireFinite(value, label); if (error) return alert(error); }
     let nodeId = "", elementId = "", distance = 0;

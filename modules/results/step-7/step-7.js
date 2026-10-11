@@ -88,8 +88,8 @@ function solveStep7(ctx, step1, step4, step5, step6) {
         html += `<p>[AM]ᵢ = [AML]ᵢ + [SM]ᵢ[RT]ᵢ[DS]ᵢ</p>`;
     }
 
-    // Validate global static equilibrium before publishing final results.
-    updateEquilibriumCheck(AC, dofMap, model.nodes, restIndices, AR);
+    // Validate global static equilibrium before the orchestrator marks results as valid.
+    const equilibriumResult = updateEquilibriumCheck(AC, dofMap, model.nodes, restIndices, AR);
 
     // Update UI Tables
     let resDispHTML = "";
@@ -167,7 +167,7 @@ function solveStep7(ctx, step1, step4, step5, step6) {
         html += `</div>`;
     } // Close step 7 container here
 
-    return { AR, resDispHTML, resReactHTML, resForceHTML, elementResults, html };
+    return { AR, resDispHTML, resReactHTML, resForceHTML, elementResults, equilibriumResult, html };
 }
 
 function renderStep7(step7) {
