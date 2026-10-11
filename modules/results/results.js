@@ -128,6 +128,11 @@ function updateAnalysisStatusUI() {
         banner.style.borderColor = "#bbf7d0";
         banner.style.background = "#f0fdf4";
         banner.style.color = "#166534";
+    } else if (analysisState.status === "failed") {
+        banner.textContent = "Equilibrium check failed — review the results before relying on them.";
+        banner.style.borderColor = "#fecaca";
+        banner.style.background = "#fef2f2";
+        banner.style.color = "#991b1b";
     } else if (analysisState.status === "invalidated") {
         banner.textContent = "Model changed since last analysis — Run Analysis again.";
         banner.style.borderColor = "#fecaca";
@@ -143,6 +148,9 @@ function updateAnalysisStatusUI() {
     if (statusEl) {
         if (analysisState.status === "valid") {
             statusEl.textContent = "";
+        } else if (analysisState.status === "failed") {
+            statusEl.textContent = " • Equilibrium check failed";
+            statusEl.style.color = "#991b1b";
         } else {
             statusEl.textContent = analysisState.status === "invalidated" ? " • Results outdated" : " • Not run";
             statusEl.style.color = analysisState.status === "invalidated" ? "#b91c1c" : "#64748b";
@@ -164,6 +172,11 @@ function markAnalysisInvalidated() {
 
 function markAnalysisValid() {
     analysisState.status = "valid";
+    updateAnalysisStatusUI();
+}
+
+function markAnalysisFailed() {
+    analysisState.status = "failed";
     updateAnalysisStatusUI();
 }
 
@@ -1118,9 +1131,16 @@ function runAnalysisCore() {
 
     document.getElementById("calcStepsContainer").innerHTML = stepsHTML;
     setupResultDetailPanels();
-    markAnalysisValid();
+    const equilibriumPassed = step7.equilibriumResult?.balanced !== false;
+    if (equilibriumPassed) markAnalysisValid();
+    else markAnalysisFailed();
     const statusEl = document.getElementById("activeAnalysisCaseStatus");
-    if (statusEl) statusEl.textContent = ` Active: ${activeCaseLabel}`;
+    if (statusEl) {
+        statusEl.textContent = equilibriumPassed
+            ? ` Active: ${activeCaseLabel}`
+            : ` Active: ${activeCaseLabel} • Equilibrium check failed`;
+        if (!equilibriumPassed) statusEl.style.color = "#991b1b";
+    }
     document.getElementById("resultsContent").style.display = "block";
     if (model.nodes.length > 10) {
         showHeavyDiagramPlaceholder("reactionSVGSmall");
@@ -1128,9 +1148,13 @@ function runAnalysisCore() {
         drawDiagramSVG("reactionSVGSmall", "reactions");
     }
     updateResultsDiagram();
-    alert(isGridAnalysisMode()
-        ? "Grid analysis completed successfully using the Grid Stiffness Method."
-        : "Analysis completed successfully using the LPW-3 Stiffness Method approach.");
+    if (equilibriumPassed) {
+        alert(isGridAnalysisMode()
+            ? "Grid analysis completed successfully using the Grid Stiffness Method."
+            : "Analysis completed successfully using the LPW-3 Stiffness Method approach.");
+    } else {
+        alert("Analysis results were computed, but the global equilibrium check failed. Review the residuals, load cases, load directions and support conditions before relying on these results. PDF export is disabled until equilibrium passes.");
+    }
 }
 
 // ==========================================================================
@@ -2216,9 +2240,12 @@ async function pdfRenderSectionsToPages(fc, sections, meta, jpegPages) {
 async function exportAnalysisPDF() {
     if (pdfExportBusy) return;
     if (analysisState.status !== "valid") {
-        alert(analysisState.status === "invalidated"
+        const message = analysisState.status === "invalidated"
             ? "The model changed since the last analysis. Please run the analysis again before exporting the PDF."
-            : "Please run the analysis first, then export the PDF.");
+            : analysisState.status === "failed"
+                ? "The last analysis failed its equilibrium check. Review the model until equilibrium passes before exporting a report."
+                : "Please run the analysis first, then export the PDF.";
+        alert(message);
         return;
     }
     if (!pdfEngineReady()) {
