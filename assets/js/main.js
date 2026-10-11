@@ -225,6 +225,8 @@ function safeStorageRemoveItem(key) {
 }
 
 let currentModelLibraryId = safeStorageGetItem("structuralCurrentModelId") || "";
+let lastModelLibraryWriteSucceeded = true;
+let lastModelSaveStorageFailed = false;
 
 function cloneBuiltInSupportTemplate(template) {
     return JSON.parse(JSON.stringify(template));
@@ -595,6 +597,8 @@ function normalizeLegacySelfWeightModel(source) {
     return normalized;
 }
 function hasId(items, id, editingId = null) {
+    // "__proto__" is special on ordinary object maps used by the UI/solver.
+    if (String(id) === "__proto__") return true;
     return Array.isArray(items) && items.some((item) => String(item.id) === String(id) && String(item.id) !== String(editingId));
 }
 
@@ -1002,6 +1006,9 @@ function validatePersistedInputModel(source) {
             if (typeof rawId !== "string" || rawId.trim() === "") {
                 throw new Error(`'${key}[${index}]' must have a non-empty string ID.`);
             }
+            if (rawId === "__proto__") {
+                throw new Error(`'${key}[${index}]' uses the reserved ID "__proto__". Choose a different ID.`);
+            }
             if (rawId !== rawId.trim()) {
                 throw new Error(`'${key}[${index}]' ID must not contain leading or trailing whitespace.`);
             }
@@ -1013,8 +1020,8 @@ function validatePersistedInputModel(source) {
     });
 
     const requireReference = (value, targetSet, description) => {
-        if (value === undefined || value === null || String(value) === "" || !targetSet.has(String(value))) {
-            throw new Error(`Invalid or missing ${description}: '${value ?? ""}'.`);
+        if (typeof value !== "string" || value === "" || !targetSet.has(value)) {
+            throw new Error(`Invalid or missing ${description}: '${value ?? ""}'. References must match an existing string ID exactly.`);
         }
     };
     const requireFiniteField = (record, field, description, { min = -Infinity, exclusiveMin = -Infinity, optional = false } = {}) => {
@@ -1081,6 +1088,13 @@ function validatePersistedInputModel(source) {
     });
 
     collections.supportTemplates.forEach((support) => {
+        const canonicalSupport = AppConfig.builtInSupportTemplates.find((item) => item.id === support.id);
+        if (canonicalSupport && support.builtIn === false) {
+            throw new Error(`Support ID '${support.id}' is reserved for a built-in support. Rename the custom support before importing.`);
+        }
+        if (!canonicalSupport && support.builtIn === true) {
+            throw new Error(`Custom support '${support.id}' cannot be marked as built-in.`);
+        }
         const restraints = support.restraints;
         if (!restraints || typeof restraints !== "object" || Array.isArray(restraints)) {
             throw new Error(`Support template '${support.id}' is missing its restraints object.`);
@@ -1097,6 +1111,15 @@ function validatePersistedInputModel(source) {
         ["dx", "dy", "dz", "tx", "ty", "tz"].forEach((field) => {
             requireFiniteField(displacement, field, `Support template '${support.id}' displacement '${field}'`);
         });
+        if (canonicalSupport) {
+            const restraintMismatch = ["RFx", "RFy", "RFz", "RMx", "RMy", "RMz"]
+                .some((field) => restraints[field] !== canonicalSupport.restraints[field]);
+            const displacementMismatch = ["dx", "dy", "dz", "tx", "ty", "tz"]
+                .some((field) => Number(displacement[field]) !== Number(canonicalSupport.displacement[field]));
+            if (restraintMismatch || displacementMismatch) {
+                throw new Error(`Built-in support '${support.id}' does not match the application's standard definition. Restore its built-in restraints and prescribed displacements before importing.`);
+            }
+        }
     });
 
     collections.elements.forEach((element) => {
@@ -1164,12 +1187,16 @@ function validatePersistedInputModel(source) {
                 throw new Error(`Load '${load.id}' distance must not exceed element length ${length}.`);
             }
             if (load.type === "Element UDL") {
-                requireFiniteField(load, "distanceEnd", `Load '${load.id}' end distance`, { min: 0 });
-                if (!(Number(load.distance) < Number(load.distanceEnd)) || Number(load.distanceEnd) > length) {
+                const rawEndDistance = load.distanceEnd;
+                const endDistance = rawEndDistance === undefined || rawEndDistance === null || rawEndDistance === ""
+                    ? length : Number(rawEndDistance);
+                requireFiniteField({ endDistance }, "endDistance", `Load '${load.id}' end distance`, { min: 0 });
+                if (!(Number(load.distance) < endDistance) || endDistance > length) {
                     throw new Error(`Load '${load.id}' UDL interval must satisfy 0 ≤ start distance < end distance ≤ element length ${length}.`);
                 }
+                // Missing end intensities default to their start intensity, as in the UI/solver.
                 const endForceFields = gridModel ? ["FzEnd"] : ["FxEnd", "FyEnd"];
-                endForceFields.forEach((field) => requireFiniteField(load, field, `Load '${load.id}' ${field}`));
+                endForceFields.forEach((field) => requireFiniteField(load, field, `Load '${load.id}' ${field}`, { optional: true }));
             }
         }
         ["Fx", "Fy", "Fz", "FxEnd", "FyEnd", "FzEnd", "angle"].forEach((field) => {
@@ -1308,7 +1335,7 @@ function createModelLibraryId() {
 }
 
 function normalizeModelLibraryRecords(source) {
-    const normalized = {};
+    const normalized = Object.create(null);
     const seenNames = new Set();
     let changed = false;
 
@@ -1382,7 +1409,8 @@ function getModelLibrary() {
 
 function setModelLibrary(library) {
     const result = normalizeModelLibraryRecords(library);
-    safeStorageSetItem("structuralModels", JSON.stringify(result.library));
+    lastModelLibraryWriteSucceeded = safeStorageSetItem("structuralModels", JSON.stringify(result.library));
+    if (!lastModelLibraryWriteSucceeded) return result.library;
 
     const activeId = String(currentModelLibraryId || safeStorageGetItem("structuralCurrentModelId") || "");
     const activeName = result.library[activeId]?.name;
@@ -1471,6 +1499,7 @@ function duplicateModelMessage(dup) {
 }
 
 function saveCurrentModelToLibrary(silent = false) {
+    lastModelSaveStorageFailed = false;
     const library = getModelLibrary();
     const data = getPersistedInputModel();
     let modelName = getModelName();
@@ -1481,15 +1510,16 @@ function saveCurrentModelToLibrary(silent = false) {
             alert(duplicateModelMessage(dup));
             return false;
         }
-        // Avoid silently creating two saved models with the same name. Keep
-        // identical content deduplicated; rename a different unsaved model so
-        // autosaving before navigation does not lose the user's work.
+        // Identical saved content is already preserved; resolve a name collision before autosaving.
         if (dup.type === "content") return false;
         modelName = getAvailableModelName(modelName, library, currentModelLibraryId);
         const nameInput = document.getElementById("modelName");
         if (nameInput) nameInput.value = modelName;
     }
 
+    const previousCurrentId = currentModelLibraryId;
+    const storageKeys = ["structuralModels", "structuralCurrentModelId", "structuralInputModel", "structuralModelName"];
+    const previousStorage = Object.fromEntries(storageKeys.map((key) => [key, safeStorageGetItem(key)]));
     if (!currentModelLibraryId) currentModelLibraryId = createModelLibraryId();
 
     library[currentModelLibraryId] = {
@@ -1500,11 +1530,25 @@ function saveCurrentModelToLibrary(silent = false) {
     };
 
     setModelLibrary(library);
-    safeStorageSetItem("structuralCurrentModelId", currentModelLibraryId);
-    safeStorageSetItem("structuralInputModel", JSON.stringify(data));
-    safeStorageSetItem("structuralModelName", modelName);
-    renderModelLibrary();
+    const persisted = lastModelLibraryWriteSucceeded &&
+        safeStorageSetItem("structuralCurrentModelId", currentModelLibraryId) &&
+        safeStorageSetItem("structuralInputModel", JSON.stringify(data)) &&
+        safeStorageSetItem("structuralModelName", modelName);
 
+    if (!persisted) {
+        lastModelSaveStorageFailed = true;
+        storageKeys.forEach((key) => {
+            const previous = previousStorage[key];
+            if (previous === null) safeStorageRemoveItem(key);
+            else safeStorageSetItem(key, previous);
+        });
+        currentModelLibraryId = previousCurrentId;
+        if (typeof renderModelLibrary === "function") renderModelLibrary();
+        alert("Model was NOT confirmed saved: browser storage rejected one or more writes (for example, storage may be full or blocked). Your current workspace remains open. Export the model as JSON before leaving this page.");
+        return false;
+    }
+
+    renderModelLibrary();
     if (!silent) alert(`Model "${modelName}" saved in browser storage.`);
     return true;
 }
@@ -1609,7 +1653,10 @@ function openSavedModel(modelId) {
 
     // Protect the current work from accidental loss by saving it first when it
     // contains input data. This does not alter the active solver state.
-    if (hasModelInputData()) saveCurrentModelToLibrary(true);
+    if (hasModelInputData()) {
+        saveCurrentModelToLibrary(true);
+        if (lastModelSaveStorageFailed) return;
+    }
 
     currentModelLibraryId = modelId;
     safeStorageSetItem("structuralCurrentModelId", modelId);
@@ -1700,7 +1747,10 @@ function createNewModelFromDialog(event) {
 }
 
 function createNewModelRecord(modelName, analysisMode) {
-    if (hasModelInputData()) saveCurrentModelToLibrary(true);
+    if (hasModelInputData()) {
+        saveCurrentModelToLibrary(true);
+        if (lastModelSaveStorageFailed) return;
+    }
     resetAllEditForms();
     // Re-check after autosaving the previous model to guard every creation
     // path, including the prompt fallback and future callers.
@@ -1740,6 +1790,10 @@ function deleteSavedModel(modelId) {
     const deletedCurrentModel = currentModelLibraryId === modelId;
     delete library[modelId];
     setModelLibrary(library);
+    if (!lastModelLibraryWriteSucceeded) {
+        alert("The model was not deleted because browser storage rejected the library update. No deletion is confirmed.");
+        return;
+    }
 
     if (deletedCurrentModel || Object.keys(library).length === 0) {
         // Deleting the active model (or the last remaining saved model) also
@@ -1888,6 +1942,10 @@ function importModel(event) {
                 });
 
                 setModelLibrary(library);
+                if (!lastModelLibraryWriteSucceeded) {
+                    alert("The models were not imported because browser storage rejected the library update. No import is confirmed.");
+                    return;
+                }
                 renderModelLibrary();
                 alert(`${importedCount} model(s) imported into the model library.` +
                     (duplicateCount ? ` ${duplicateCount} duplicate model(s) already saved on this device were skipped.` : ""));
@@ -1905,6 +1963,7 @@ function importModel(event) {
                     // model. The silent save either updates the current library
                     // entry or deduplicates identical content already saved.
                     saveCurrentModelToLibrary(true);
+                    if (lastModelSaveStorageFailed) return;
                 }
                 applyPersistedInputModel(imported);
                 migrateUnitSystem();
@@ -2201,7 +2260,7 @@ function handleSortPointerMove(e) {
 document.addEventListener("pointerdown", handleSortPointerDown, { passive: false });
 document.addEventListener("pointermove", handleSortPointerMove, { passive: false });
 document.addEventListener("pointerup", () => finishSortDrag(true));
-document.addEventListener("pointercancel", () => finishSortDrag(true));
+document.addEventListener("pointercancel", () => finishSortDrag(false));
 
 function handleSortKeyboardReorder(event) {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;

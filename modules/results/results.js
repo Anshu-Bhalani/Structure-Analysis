@@ -88,7 +88,7 @@ mountModuleHTML(".container", "beforeend", `
                 <div class="equilibrium-metric"><div class="equilibrium-metric-label" id="eqFxLabel">ΣFx Residual</div><div class="equilibrium-metric-value" id="eqFxResidual">0.000 kN</div></div>
                 <div class="equilibrium-metric"><div class="equilibrium-metric-label" id="eqFyLabel">ΣFy Residual</div><div class="equilibrium-metric-value" id="eqFyResidual">0.000 kN</div></div>
                 <div class="equilibrium-metric"><div class="equilibrium-metric-label" id="eqMzLabel">ΣMz Residual</div><div class="equilibrium-metric-value" id="eqMzResidual">0.000 kN·m</div></div>
-                <div class="equilibrium-metric"><div class="equilibrium-metric-label">Maximum Residual</div><div class="equilibrium-metric-value" id="eqMaxResidual">0.000</div></div>
+                <div class="equilibrium-metric"><div class="equilibrium-metric-label" id="eqMaxResidualLabel">Force / Moment Residuals</div><div class="equilibrium-metric-value" id="eqMaxResidual">0.000</div></div>
             </div>
             <div class="equilibrium-note" id="equilibriumNote">External load vector + support reaction vector = global equilibrium residual.</div>
         </div>
@@ -580,7 +580,12 @@ function calculateEquilibriumResiduals(AC, dofMap, modelNodes, restIndices, AR) 
     const momentResidualOk = absMz <= momentTolerance;
     const balanced = forceResidualOk && momentResidualOk;
 
-    return { sumFx, sumFy, sumMz, maxResidual, balanced, tolerance, momentTolerance };
+    return {
+        sumFx, sumFy, sumMz, maxResidual,
+        maxForceResidual: Math.max(absFx, absFy),
+        maxMomentResidual: absMz,
+        balanced, tolerance, momentTolerance,
+    };
 }
 
 // Grid equilibrium is audited from physical global load resultants and solved
@@ -770,6 +775,8 @@ function calculateGridEquilibriumResiduals(AC, dofMap, modelNodes, restIndices, 
         sumFy: sumMy,
         sumMz: sumFz,
         maxResidual,
+        maxForceResidual: absFz,
+        maxMomentResidual: Math.max(absMx, absMy),
         balanced: absMx <= momentTolerance && absMy <= momentTolerance && absFz <= forceTolerance,
         tolerance: forceTolerance,
         forceTolerance,
@@ -799,14 +806,21 @@ function renderEquilibriumCheck(result) {
         if (fyEl) fyEl.textContent = `${formatNum(sumFy)} kN`;
         if (mzEl) mzEl.textContent = `${formatNum(sumMz)} kN·m`;
     }
-    if (maxEl) maxEl.textContent = `${formatNum(maxResidual)}`;
+    const forceResidual = Number.isFinite(result.maxForceResidual)
+        ? result.maxForceResidual
+        : (result.grid ? Math.abs(sumMz) : Math.max(Math.abs(sumFx), Math.abs(sumFy)));
+    const momentResidual = Number.isFinite(result.maxMomentResidual)
+        ? result.maxMomentResidual
+        : (result.grid ? Math.max(Math.abs(sumFx), Math.abs(sumFy)) : Math.abs(sumMz));
+    const residualSummary = `Force: ${formatNum(forceResidual)} kN · Moment: ${formatNum(momentResidual)} kN·m`;
+    if (maxEl) maxEl.textContent = residualSummary;
 
     if (statusEl) {
         statusEl.classList.toggle("ok", balanced);
         statusEl.classList.toggle("warn", !balanced);
         statusEl.textContent = balanced
-            ? `✓ Equilibrium satisfied — Maximum residual: ${formatNum(maxResidual)}`
-            : `⚠ Equilibrium check failed — Maximum residual: ${formatNum(maxResidual)}`;
+            ? `✓ Equilibrium satisfied — ${residualSummary}`
+            : `⚠ Equilibrium check failed — ${residualSummary}`;
     }
     if (noteEl) {
         noteEl.textContent = result.grid
@@ -1023,6 +1037,7 @@ function updateSolverModeResultHeaders() {
         setText("resReactionHdr4", "—"); setText("resReactionHdr5", "—"); setText("resReactionHdr6", "—");
         setText("resForceHdr1", "Mx (kN·m)"); setText("resForceHdr2", "My (kN·m)"); setText("resForceHdr3", "Fz (kN)");
         setText("eqFxLabel", "ΣMx Residual"); setText("eqFyLabel", "ΣMy Residual"); setText("eqMzLabel", "ΣFz Residual");
+        setText("eqMaxResidualLabel", "Force / Moment Residuals");
         setText("summaryAxialLabel", "Maximum Mx action"); setText("summaryShearLabel", "Maximum My action"); setText("summaryMomentLabel", "Maximum Fz action");
     } else {
         setText("resDispHdr1", "UX (m)"); setText("resDispHdr2", "UY (m)"); setText("resDispHdr3", "RZ (rad)");
@@ -1031,6 +1046,7 @@ function updateSolverModeResultHeaders() {
         setText("resReactionHdr4", "Fx′ (kN)"); setText("resReactionHdr5", "Fy′ (kN)"); setText("resReactionHdr6", "Mz′ (kN·m)");
         setText("resForceHdr1", "Axial (kN)"); setText("resForceHdr2", "Shear (kN)"); setText("resForceHdr3", "Moment (kN·m)");
         setText("eqFxLabel", "ΣFx Residual"); setText("eqFyLabel", "ΣFy Residual"); setText("eqMzLabel", "ΣMz Residual");
+        setText("eqMaxResidualLabel", "Force / Moment Residuals");
         setText("summaryAxialLabel", "Maximum axial force"); setText("summaryShearLabel", "Maximum shear"); setText("summaryMomentLabel", "Maximum bending moment");
     }
 }
