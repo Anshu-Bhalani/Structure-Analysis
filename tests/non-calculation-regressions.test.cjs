@@ -139,50 +139,50 @@ test("application JavaScript files parse", () => {
 test("import rejects nodes that share the same X/Y coordinates", () => {
     const model = baseModel("plane");
     model.nodes.push({ id: "N3", x: 4, y: 0, z: 0 });
-    assert.throws(() => validate(model), /share the same X\\/Y coordinates/);
+    assert.throws(() => validate(model), /share the same X\/Y coordinates/);
 });
 
 test("next ID preserves the existing numeric suffix width", () => {
-    const nextIdSource = section(mainSource, "function getNextId(currentId) {", "\\nfunction val(");
-    const getNextId = new Function(nextIdSource + "\\nreturn getNextId;")();
+    const nextIdSource = section(mainSource, "function getNextId(currentId) {", "\nfunction val(");
+    const getNextId = new Function(nextIdSource + "\nreturn getNextId;")();
     assert.equal(getNextId("N09"), "N10");
     assert.equal(getNextId("N009"), "N010");
     assert.equal(getNextId("E99"), "E100");
 });
 
 test("live node validation rejects duplicate coordinates while allowing the edited node's own coordinates", () => {
-    const nodeValidationSource = section(mainSource, "function validateNodeInput(id, x, y, z, editingId = null) {", "\\n// ==========================================================================\\n// 4. MATRIX ALGEBRA UTILITIES");
+    const nodeValidationSource = section(mainSource, "function validateNodeInput(id, x, y, z, editingId = null) {", "\n// ==========================================================================\n// 4. MATRIX ALGEBRA UTILITIES");
     const model = { nodes: [{ id: "N1", x: 0, y: 0 }, { id: "N2", x: 4, y: 0 }] };
     const hasId = (items, id, editingId = null) => items.some((item) => item.id === id && item.id !== editingId);
     const requireFinite = (value, label) => Number.isFinite(Number(value)) ? null : `${label} must be finite.`;
-    const validateNodeInput = new Function("model", "hasId", "requireFinite", nodeValidationSource + "\\nreturn validateNodeInput;")(model, hasId, requireFinite);
-    assert.match(validateNodeInput("N3", 4, 0, 0), /unique X\\/Y coordinates/);
+    const validateNodeInput = new Function("model", "hasId", "requireFinite", nodeValidationSource + "\nreturn validateNodeInput;")(model, hasId, requireFinite);
+    assert.match(validateNodeInput("N3", 4, 0, 0), /unique X\/Y coordinates/);
     assert.equal(validateNodeInput("N2", 4, 0, 0, "N2"), null);
 });
 
 test("moving a node cannot leave point loads, UDLs, or member moments outside the new element length", () => {
     const nodesSource = fs.readFileSync(path.join(root, "modules/nodes/nodes.js"), "utf8");
-    const movementSource = section(nodesSource, "function findNodeMoveDistanceViolation(nodeId, x, y) {", "\\nfunction updateNode(");
+    const movementSource = section(nodesSource, "function findNodeMoveDistanceViolation(nodeId, x, y) {", "\nfunction updateNode(");
     const model = {
         nodes: [{ id: "N1", x: 0, y: 0 }, { id: "N2", x: 4, y: 0 }],
         elements: [{ id: "E1", startNode: "N1", endNode: "N2" }],
         loads: [{ id: "L1", type: "Element Point Load", elementId: "E1", distance: 3 }],
         moments: []
     };
-    const findViolation = new Function("model", movementSource + "\\nreturn findNodeMoveDistanceViolation;")(model);
+    const findViolation = new Function("model", movementSource + "\nreturn findNodeMoveDistanceViolation;")(model);
     assert.match(findViolation("N2", 2, 0), /load "L1"/);
     assert.equal(findViolation("N2", 5, 0), null);
     model.loads = [{ id: "L2", type: "Element UDL", elementId: "E1", distance: 1, distanceEnd: 3.5 }];
     assert.match(findViolation("N2", 3, 0), /UDL "L2"/);
     model.loads = [];
     model.moments = [{ id: "M1", type: "Element Moment", elementId: "E1", distance: 3.5 }];
-    assert.match(findViolation("N2", 3, 0), /moment\\/torsion "M1"/);
+    assert.match(findViolation("N2", 3, 0), /moment\/torsion "M1"/);
 });
 
 test("missing self-weight values are detected; explicitly entered zero is valid", () => {
-    const helperSource = section(mainSource, "function getMissingSelfWeightElement(loadCase, elements = model.elements) {", "\\nfunction getModelName()");
+    const helperSource = section(mainSource, "function getMissingSelfWeightElement(loadCase, elements = model.elements) {", "\nfunction getModelName()");
     const model = { elements: [{ id: "E1" }, { id: "E2" }] };
-    const getMissing = new Function("model", helperSource + "\\nreturn getMissingSelfWeightElement;")(model);
+    const getMissing = new Function("model", helperSource + "\nreturn getMissingSelfWeightElement;")(model);
     const loadCase = { id: "SW1", type: "Self Weight", memberSelfWeights: { E1: 2 } };
     assert.equal(getMissing(loadCase).id, "E2");
     loadCase.memberSelfWeights.E2 = 0;
@@ -192,12 +192,12 @@ test("missing self-weight values are detected; explicitly entered zero is valid"
 
 test("changing a Self Weight load case to another type clears stale member weights", () => {
     const loadCaseSource = fs.readFileSync(path.join(root, "modules/load-case/load-case.js"), "utf8");
-    const updateSource = section(loadCaseSource, "function updateLoadCase(existingId, data) {", "\\ndocument.getElementById(\\"loadCaseForm\\")");
+    const updateSource = section(loadCaseSource, "function updateLoadCase(existingId, data) {", "\ndocument.getElementById(\"loadCaseForm\")");
     const loadCase = { id: "SW1", type: "Self Weight", description: "Weights", memberSelfWeights: { E1: 3 } };
     const model = { loadCases: [loadCase], loads: [] };
     let activeLoadCaseId = "SW1";
     let invalidated = false;
-    const update = new Function("model", "activeLoadCaseId", "markAnalysisInvalidated", updateSource + "\\nreturn updateLoadCase;")(
+    const update = new Function("model", "activeLoadCaseId", "markAnalysisInvalidated", updateSource + "\nreturn updateLoadCase;")(
         model,
         activeLoadCaseId,
         () => { invalidated = true; }
@@ -209,31 +209,31 @@ test("changing a Self Weight load case to another type clears stale member weigh
 });
 
 test("navigation no longer rerenders every model table and diagram", () => {
-    const switchSource = section(mainSource, "function switchSection(id, btnEl) {", "\\nfunction goHome()");
-    assert.doesNotMatch(switchSource, /refreshAll\\s*\\(/);
+    const switchSource = section(mainSource, "function switchSection(id, btnEl) {", "\nfunction goHome()");
+    assert.doesNotMatch(switchSource, /refreshAll\s*\(/);
 });
 
 test("Clear Model resets analysis mode and item deletion resets the matching edit form", () => {
-    const clearSource = section(mainSource, "function clearModel() {", "\\n// ==========================================================================\\n// 7. NAVIGATION");
-    assert.match(clearSource, /model\\.analysisMode\\s*=\\s*"plane"/);
-    const deleteSource = section(mainSource, "function deleteItem(collection, encodedValue, property) {", "\\nfunction refreshAll()");
+    const clearSource = section(mainSource, "function clearModel() {", "\n// ==========================================================================\n// 7. NAVIGATION");
+    assert.match(clearSource, /model\.analysisMode\s*=\s*"plane"/);
+    const deleteSource = section(mainSource, "function deleteItem(collection, encodedValue, property) {", "\nfunction refreshAll()");
     for (const identifier of ["editingNodeId", "editingElementTemplateId", "editingElementId", "editingSupportTemplateId", "editingSupportAssignmentId", "editingLoadCaseId", "editingLoadId", "editingMomentCaseId", "editingMomentId"]) {
         assert.match(deleteSource, new RegExp(identifier));
     }
 });
 
 test("single-model import offers replacing without saving and does not abort on Cancel", () => {
-    const importSource = section(mainSource, "function importModel(event) {", "\\nfunction resetActiveModelAfterSavedModelDeletion()");
+    const importSource = section(mainSource, "function importModel(event) {", "\nfunction resetActiveModelAfterSavedModelDeletion()");
     assert.match(importSource, /Choose OK to save the current model first, or Cancel to replace it without saving/);
-    assert.match(importSource, /if \\(saveBeforeReplace\\)\\s*\\{/);
-    assert.doesNotMatch(importSource, /if\\s*\\(!saveBeforeReplace\\)\\s*return/);
+    assert.match(importSource, /if \(saveBeforeReplace\)\s*\{/);
+    assert.doesNotMatch(importSource, /if\s*\(!saveBeforeReplace\)\s*return/);
 });
 
 test("saving no longer writes a second full-model copy to legacy storage", () => {
-    const saveSource = section(mainSource, "function saveCurrentModelToLibrary(silent = false) {", "\\nfunction saveModel()");
-    assert.doesNotMatch(saveSource, /safeStorageSetItem\\("structuralInputModel"/);
-    assert.match(saveSource, /safeStorageRemoveItem\\("structuralInputModel"\\)/);
-    assert.match(saveSource, /lastModelLibraryWriteSucceeded\\s*&&/);
+    const saveSource = section(mainSource, "function saveCurrentModelToLibrary(silent = false) {", "\nfunction saveModel()");
+    assert.doesNotMatch(saveSource, /safeStorageSetItem\("structuralInputModel"/);
+    assert.match(saveSource, /safeStorageRemoveItem\("structuralInputModel"\)/);
+    assert.match(saveSource, /lastModelLibraryWriteSucceeded\s*&&/);
 });
 
 test("Plane import ignores blank Fz when the active Fx/Fy values are valid", () => {
@@ -243,9 +243,9 @@ test("Plane import ignores blank Fz when the active Fx/Fy values are valid", () 
 });
 
 test("storage failure is reported as failure and never as a successful save", () => {
-    const getLibrarySource = section(mainSource, "function getModelLibrary() {", "\\nfunction getModelLibraryReadFailureMessage()");
-    const readMessageSource = section(mainSource, "function getModelLibraryReadFailureMessage() {", "\\nfunction setModelLibrary(");
-    const saveSource = section(mainSource, "function saveCurrentModelToLibrary(silent = false) {", "\\nfunction saveModel()");
+    const getLibrarySource = section(mainSource, "function getModelLibrary() {", "\nfunction getModelLibraryReadFailureMessage()");
+    const readMessageSource = section(mainSource, "function getModelLibraryReadFailureMessage() {", "\nfunction setModelLibrary(");
+    const saveSource = section(mainSource, "function saveCurrentModelToLibrary(silent = false) {", "\nfunction saveModel()");
     const harnessCode = [
         "let lastModelLibraryWriteSucceeded = true;",
         "let lastModelSaveStorageFailed = false;",
@@ -258,7 +258,7 @@ test("storage failure is reported as failure and never as a successful save", ()
         "const safeStorageRemoveItem = (key) => { delete stored[key]; return true; };",
         "const normalizeModelLibraryRecords = (source) => ({ library: source, changed: false });",
         "const normalizeLegacySelfWeightModel = (value) => value;",
-        "const modelNameKey = (value) => String(value || '').replace(/\\\\s+/g, '').toLowerCase();",
+        "const modelNameKey = (value) => String(value || '').replace(/\\s+/g, '').toLowerCase();",
         "const getPersistedInputModel = () => ({ nodes: [{ id: 'N1' }] });",
         "const getModelName = () => 'Test Model';",
         "const findDuplicateModel = () => null;",
@@ -273,7 +273,7 @@ test("storage failure is reported as failure and never as a successful save", ()
         readMessageSource,
         saveSource,
         "return { save: () => saveCurrentModelToLibrary(false), state: () => ({ failed: lastModelSaveStorageFailed, alerts, stored }) };"
-    ].join("\\n");
+    ].join("\n");
     const harness = new Function(harnessCode)();
     assert.equal(harness.save(), false);
     const state = harness.state();
