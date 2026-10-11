@@ -59,6 +59,7 @@ function updateLoadCase(existingId, data) {
     if (!loadCase) return false;
     const oldId = loadCase.id;
     Object.assign(loadCase, data);
+    if (data.type !== "Self Weight") delete loadCase.memberSelfWeights;
     if (oldId !== data.id) {
         model.loads.forEach((load) => { if (load.loadCaseId === oldId) load.loadCaseId = data.id; });
         if (activeLoadCaseId === oldId) activeLoadCaseId = data.id;

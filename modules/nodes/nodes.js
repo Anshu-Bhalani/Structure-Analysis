@@ -93,6 +93,9 @@ document.getElementById("nodeForm").addEventListener("submit", (e) => {
     const validationError = validateNodeInput(id, x, y, z, editingNodeId);
     if (validationError) return alert(validationError);
 
+    const coincident = model.nodes.find((n) => String(n.id) !== String(editingNodeId) && Number(n.x) === x && Number(n.y) === y);
+    if (coincident && !confirm(`Node "${coincident.id}" is already at (${x}, ${y}). Two nodes at the same location are not connected to each other. Save anyway?`)) return;
+
     if (editingNodeId !== null) {
         const collapsedElement = findCollapsedConnectedElement(editingNodeId, x, y);
         if (collapsedElement) {
