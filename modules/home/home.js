@@ -81,7 +81,7 @@ function modelPreviewSVG(data) {
         </svg>`;
     }
 
-    const nodeById = {};
+    const nodeById = Object.create(null);
     nodes.forEach(n => { nodeById[String(n.id)] = n; });
 
     const xs = nodes.map(n => Number(n.x) || 0);
@@ -98,7 +98,7 @@ function modelPreviewSVG(data) {
     const sx = x => 55 + ((x - left) / Math.max(right - left, 1)) * 650;
     const sy = y => 210 - ((y - bottom) / Math.max(top - bottom, 1)) * 170;
 
-    const templateById = {};
+    const templateById = Object.create(null);
     (Array.isArray(data.elementTemplates) ? data.elementTemplates : []).forEach(t => {
         templateById[String(t.id)] = t;
     });
@@ -243,6 +243,26 @@ function renderModelLibrary() {
     }
 
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        if (currentStatusEl) {
+            currentStatusEl.textContent = "Library unavailable";
+            currentStatusEl.className = "badge badge-red";
+        }
+        if (countEl) countEl.textContent = "Unavailable";
+        grid.innerHTML = `<div class="home-empty" style="grid-column:1 / -1;">
+            <div class="home-empty-icon">⚠</div>
+            <h4>Saved-model library could not be read</h4>
+            <p>The stored library has not been overwritten. Export the current workspace as JSON and keep a backup before attempting browser-storage recovery.</p>
+        </div>`;
+        updateModelSelectionToolbar();
+        return;
+    }
+    const activeSavedModel = currentModelLibraryId ? library[currentModelLibraryId] : null;
+    const liveCurrentData = getPersistedInputModel();
+    const currentModelHasUnsavedChanges = !!activeSavedModel && (
+        getModelName() !== String(activeSavedModel.name || "Structural Model") ||
+        modelDataFingerprint(liveCurrentData) !== modelDataFingerprint(activeSavedModel.data)
+    );
     const models = Object.values(library).sort((a, b) => {
         const at = new Date(a.updatedAt || 0).getTime();
         const bt = new Date(b.updatedAt || 0).getTime();
@@ -253,9 +273,9 @@ function renderModelLibrary() {
     if (countEl) countEl.textContent = `${models.length} ${models.length === 1 ? "Model" : "Models"}`;
 
     if (currentStatusEl) {
-        if (currentModelLibraryId && library[currentModelLibraryId]) {
-            currentStatusEl.textContent = "Saved";
-            currentStatusEl.className = "badge badge-green";
+        if (activeSavedModel) {
+            currentStatusEl.textContent = currentModelHasUnsavedChanges ? "Unsaved changes" : "Saved";
+            currentStatusEl.className = currentModelHasUnsavedChanges ? "badge badge-orange" : "badge badge-green";
         } else {
             currentStatusEl.textContent = "Not saved";
             currentStatusEl.className = "badge badge-gray";
@@ -274,12 +294,14 @@ function renderModelLibrary() {
     }
 
     grid.innerHTML = models.map((item) => {
-        const data = item.data || {};
+        const savedData = item.data || {};
+        const isCurrent = item.id === currentModelLibraryId;
+        const data = isCurrent ? liveCurrentData : savedData;
+        const displayName = isCurrent ? currentName : (item.name || "Structural Model");
         const nodes = Array.isArray(data.nodes) ? data.nodes.length : 0;
         const elements = Array.isArray(data.elements) ? data.elements.length : 0;
         const loads = Array.isArray(data.loads) ? data.loads.length : 0;
         const moments = Array.isArray(data.moments) ? data.moments.length : 0;
-        const isCurrent = item.id === currentModelLibraryId;
         const isGridModel = data.analysisMode === "grid";
         const modelTypeLabel = isGridModel ? "Grid Model" : "Beam / Truss / Frame Model";
         const modelTypeClass = isGridModel ? "badge-green" : "badge-blue";
@@ -287,13 +309,13 @@ function renderModelLibrary() {
         const isSelected = selectedModelIds.has(item.id);
         return `<article class="model-card${isCurrent ? " current" : ""}${isSelected ? " selected" : ""}">
             <div class="model-card-preview">
-                <label class="model-select-box" title="Select this model"><input type="checkbox" aria-label="Select model ${escapeHtml(item.name || "Structural Model")}" ${isSelected ? "checked" : ""} onchange="toggleModelSelection('${safeId}', this.checked)"></label>
+                <label class="model-select-box" title="Select this model"><input type="checkbox" aria-label="Select model ${escapeHtml(displayName)}" ${isSelected ? "checked" : ""} onchange="toggleModelSelection('${safeId}', this.checked)"></label>
                 <span class="home-preview-label">Structure Preview</span>
                 ${modelPreviewSVG(data)}
             </div>
             <div class="model-card-body">
                 <div class="model-card-title-row">
-                    <div class="model-card-name">${escapeHtml(item.name || "Structural Model")}</div>
+                    <div class="model-card-name">${escapeHtml(displayName)}</div>
                     <div class="model-card-badges">
                         <span class="badge ${modelTypeClass}">${modelTypeLabel}</span>
                         ${isCurrent ? '<span class="badge badge-gray">Current</span>' : ''}
@@ -306,7 +328,7 @@ function renderModelLibrary() {
                     <div class="model-card-stat"><div class="model-card-stat-label">${isGridModel ? "Torsions" : "Moments"}</div><div class="model-card-stat-value">${moments}</div></div>
                 </div>
                 <div class="model-card-foot">
-                    <span class="model-card-saved">Saved ${escapeHtml(formatModelSavedTime(item.updatedAt))}</span>
+                    <span class="model-card-saved">${isCurrent && currentModelHasUnsavedChanges ? "Unsaved changes" : `Saved ${escapeHtml(formatModelSavedTime(item.updatedAt))}`}</span>
                     <div class="model-card-actions">
                         <button type="button" class="icon-btn" onclick="openSavedModelFromInline('${safeId}')">Open</button>
                         <button type="button" class="icon-btn" onclick="exportSavedModelFromInline('${safeId}')">Export</button>
@@ -410,6 +432,10 @@ function getSelectedModelSnapshots() {
 
 function exportSelectedModelsJSON() {
     const items = getSelectedModelSnapshots();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     if (!items.length) {
         alert("Select at least one model first.");
         return;
@@ -434,6 +460,10 @@ function exportSelectedModelsJSON() {
 
 function deleteSelectedModels() {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     const ids = Array.from(selectedModelIds).filter((id) => library[id]);
     if (!ids.length) {
         alert("Select at least one model first.");
@@ -446,6 +476,10 @@ function deleteSelectedModels() {
     const deletedCurrentModel = ids.includes(currentModelLibraryId);
     ids.forEach((id) => { delete library[id]; });
     const remainingLibrary = setModelLibrary(library);
+    if (!lastModelLibraryWriteSucceeded) {
+        alert("The selected models were not deleted because browser storage rejected the library update. No deletion is confirmed.");
+        return;
+    }
     selectedModelIds.clear();
 
     if (deletedCurrentModel || Object.keys(remainingLibrary).length === 0) {
@@ -497,9 +531,73 @@ function chooseUnambiguousBatchCases(modelData) {
     };
 }
 
+// A Home-screen batch export has no active case selector. For plane models,
+// retain the established safety rule and refuse to guess between multiple
+// cases. Grid models can export every defined, applicable load-case / torsion-
+// case combination instead of failing just because the model has alternatives.
+function chooseBatchCaseCombinations(modelData) {
+    if (modelData?.analysisMode !== "grid") {
+        const choice = chooseUnambiguousBatchCases(modelData);
+        return choice.ok ? { ok: true, choices: [choice] } : choice;
+    }
+
+    let normalized;
+    try {
+        normalized = normalizeLegacySelfWeightModel(modelData);
+    } catch (error) {
+        return { ok: false, message: error.message || "Legacy self-weight data could not be converted safely. Review the model before batch export." };
+    }
+
+    const loadCases = Array.isArray(normalized?.loadCases) ? normalized.loadCases : [];
+    const loads = Array.isArray(normalized?.loads) ? normalized.loads : [];
+    const elements = Array.isArray(normalized?.elements) ? normalized.elements : [];
+    const moments = Array.isArray(normalized?.moments) ? normalized.moments : [];
+    const elementIds = new Set(elements.map((element) => String(element?.id ?? "")));
+
+    // Every case containing explicit loads is a candidate. A Self Weight case
+    // is also included when it has a positive weight for an existing element,
+    // even if it has no explicit load rows. Set semantics avoid duplicate case
+    // reports when a Self Weight case contains both types of input.
+    const loadCaseIds = new Set(
+        loads.map((load) => String(load?.loadCaseId ?? "")).filter(Boolean)
+    );
+    loadCases.filter((loadCase) => loadCase?.type === "Self Weight").forEach((loadCase) => {
+        const hasApplicableWeight = Object.entries(loadCase?.memberSelfWeights || {}).some(
+            ([elementId, weight]) => elementIds.has(String(elementId)) && Number(weight) > 0
+        );
+        if (hasApplicableWeight && loadCase.id !== undefined && loadCase.id !== null && String(loadCase.id)) {
+            loadCaseIds.add(String(loadCase.id));
+        }
+    });
+
+    const momentCaseIds = new Set(
+        moments.map((moment) => String(moment?.momentCaseId ?? "")).filter(Boolean)
+    );
+    // Empty models retain the same default-case behavior as opening a model
+    // and running its analysis from the Results page.
+    if (!loadCaseIds.size) loadCaseIds.add("");
+    if (!momentCaseIds.size) momentCaseIds.add("");
+
+    const choices = [...loadCaseIds].flatMap((loadCaseId) =>
+        [...momentCaseIds].map((momentCaseId) => ({
+            ok: true,
+            loadCaseId,
+            momentCaseId,
+        }))
+    );
+    return { ok: true, choices };
+}
+
+// runAnalysisCore uses a mode-specific success message. Recognize both the
+// plane and Grid forms so a successful Grid solve is not misclassified as an
+// error by the silent Home-screen exporter.
+function isBatchAnalysisSuccessMessage(message) {
+    return /^(?:Grid )?analysis completed successfully\b/i.test(String(message || ""));
+}
+
 // Loads a model's input data into the working model and solves it without any
 // dialogs. Returns { ok, message, sections, caseLabel }.
-function solveModelSilently(data) {
+function solveModelSilently(data, caseChoiceOverride = null) {
     const captured = [];
     const origAlert = window.alert;
     const origConfirm = window.confirm;
@@ -510,7 +608,7 @@ function solveModelSilently(data) {
         migrateUnitSystem();
         ensureBuiltInSupportTemplates();
 
-        const caseChoice = chooseUnambiguousBatchCases(model);
+        const caseChoice = caseChoiceOverride || chooseUnambiguousBatchCases(model);
         if (!caseChoice.ok) return { ok: false, message: caseChoice.message };
         activeLoadCaseId = caseChoice.loadCaseId;
         activeMomentCaseId = caseChoice.momentCaseId;
@@ -519,7 +617,7 @@ function solveModelSilently(data) {
         analysisState.status = "not-run";
         runAnalysisCore();
 
-        const problems = captured.filter((m) => !/^Analysis completed successfully/.test(m));
+        const problems = captured.filter((m) => !isBatchAnalysisSuccessMessage(m));
         if (analysisState.status !== "valid" || problems.length) {
             return { ok: false, message: problems.join(" ") || "The analysis did not complete." };
         }
@@ -537,6 +635,10 @@ function solveModelSilently(data) {
 async function exportSelectedModelsPDF() {
     if (pdfExportBusy) return;
     const items = getSelectedModelSnapshots();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     if (!items.length) {
         alert("Select at least one model first.");
         return;
@@ -551,6 +653,7 @@ async function exportSelectedModelsPDF() {
     let frame = null;
     const solved = [];
     const failed = [];
+    let hasExpandedCaseReports = false;
 
     // Keep the user's current work so it can be put back afterwards.
     const snap = {
@@ -562,10 +665,36 @@ async function exportSelectedModelsPDF() {
 
     try {
         for (let i = 0; i < items.length; i++) {
-            await pdfShowProgress(`Solving model ${i + 1} of ${items.length}: ${items[i].name}…`);
-            const r = solveModelSilently(items[i].data);
-            if (r.ok) solved.push({ name: items[i].name, sections: r.sections, caseLabel: r.caseLabel });
-            else failed.push({ name: items[i].name, message: r.message });
+            const item = items[i];
+            const casePlan = chooseBatchCaseCombinations(item.data);
+            if (!casePlan.ok) {
+                failed.push({ name: item.name, message: casePlan.message });
+                continue;
+            }
+            if (item.data?.analysisMode === "grid" && casePlan.choices.length > 1) {
+                hasExpandedCaseReports = true;
+            }
+
+            for (let j = 0; j < casePlan.choices.length; j++) {
+                const caseChoice = casePlan.choices[j];
+                const caseDescription = `Load Case ${caseChoice.loadCaseId || "None"} / Torsion Case ${caseChoice.momentCaseId || "None"}`;
+                const caseProgress = casePlan.choices.length > 1 ? ` — ${caseDescription}` : "";
+                await pdfShowProgress(`Solving model ${i + 1} of ${items.length}: ${item.name}${caseProgress}…`);
+                const r = solveModelSilently(item.data, caseChoice);
+                if (r.ok) {
+                    solved.push({
+                        modelKey: item.id || item.name,
+                        name: item.name,
+                        sections: r.sections,
+                        caseLabel: r.caseLabel,
+                    });
+                } else {
+                    failed.push({
+                        name: item.name,
+                        message: casePlan.choices.length > 1 ? `${caseDescription}: ${r.message}` : r.message,
+                    });
+                }
+            }
         }
     } finally {
         // Restore the model that was open before the batch started.
@@ -629,18 +758,25 @@ async function exportSelectedModelsPDF() {
         const dateText = new Date().toLocaleDateString();
         for (let k = 0; k < solved.length; k++) {
             const multi = solved.length > 1;
+            const reportPrefix = multi
+                ? (hasExpandedCaseReports ? `Report ${k + 1} of ${solved.length}` : `Model ${k + 1} of ${solved.length}`)
+                : "";
             const meta = {
                 modelName: solved[k].name,
                 caseLabel: solved[k].caseLabel,
                 dateText,
-                sectionPrefix: multi ? `Model ${k + 1} of ${solved.length} · ` : "",
-                progressPrefix: multi ? `Model ${k + 1} of ${solved.length} — ` : "",
+                sectionPrefix: multi ? `${reportPrefix} · ` : "",
+                progressPrefix: multi ? `${reportPrefix} — ` : "",
             };
             await pdfRenderSectionsToPages({ frame, doc, win, root }, solved[k].sections, meta, jpegPages);
         }
 
         await pdfShowProgress("Creating PDF file…");
-        const title = solved.length === 1 ? `${solved[0].name} - Analysis Report` : `Selected Models (${solved.length}) - Analysis Report`;
+        const title = solved.length === 1
+            ? `${solved[0].name} - Analysis Report`
+            : (hasExpandedCaseReports
+                ? `Analysis Reports (${solved.length}) - Analysis Report`
+                : `Selected Models (${solved.length}) - Analysis Report`);
         const blob = pdfBuildFile(jpegPages, title);
         pdfDownloadBlob(blob, `${sanitizeFileName(title)}.pdf`);
     } catch (err) {
