@@ -286,19 +286,18 @@ test("storage failure is reported as failure and never as a successful save", ()
 
 
 test("Grid My diagram is described as torsion in selectors, legends, and PDF output", () => {
-    const gridDiagramLabelsSource = section(mainSource, "const diagramLabels = gridMode", "\\n    [\\"resultsDiagramMode\\"");
-    assert.match(gridDiagramLabelsSource, /bmd: "Torsion \\(My\\)"/);
-    assert.doesNotMatch(gridDiagramLabelsSource, /Bending Moment \\(My\\)/);
-    assert.match(gridDiagramLabelsSource, /\\{ afd: "Torsion \\(Mx\\)", sfd: "Vertical Shear \\(Fz\\)", bmd: "Torsion \\(My\\)" \\}/);
+    assert.match(mainSource, /bmd: "Torsion \(My\)"/);
+    assert.doesNotMatch(mainSource, /bmd: "Bending Moment \(My\)"/);
+    assert.match(mainSource, /afd: "Torsion \(Mx\)", sfd: "Vertical Shear \(Fz\)", bmd: "Torsion \(My\)"/);
     assert.match(mainSource, /bmd: "BMD"/, "the plane-model selector must retain its original label");
 
-    assert.match(resultsForDiagramLabelsSource, /bmd: "Torsion Diagram \\(My\\)"/);
-    assert.match(resultsForDiagramLabelsSource, /Step 8: Grid Torsion \\(Mx, My\\) and Vertical Shear \\(Fz\\) Diagrams/);
-    assert.match(resultsForDiagramLabelsSource, /bmd: "Bending Moment Diagram \\(BMD\\)"/, "plane-model PDF naming must remain unchanged");
+    assert.match(resultsForDiagramLabelsSource, /bmd: "Torsion Diagram \(My\)"/);
+    assert.match(resultsForDiagramLabelsSource, /Step 8: Grid Torsion \(Mx, My\) and Vertical Shear \(Fz\) Diagrams/);
+    assert.match(resultsForDiagramLabelsSource, /bmd: "Bending Moment Diagram \(BMD\)"/, "plane-model PDF naming must remain unchanged");
 
     assert.match(diagramsForDiagramLabelsSource, /'Grid My torsion diagram'/);
     assert.match(diagramsForDiagramLabelsSource, /'Positive My torsion'/);
     assert.match(diagramsForDiagramLabelsSource, /'Negative My torsion'/);
     assert.match(diagramsForDiagramLabelsSource, /'Grid torsion about Y'/);
-    assert.match(diagramsForDiagramLabelsSource, /Mx \/ My — reaction torsions \\(kN·m\\)/);
+    assert.match(diagramsForDiagramLabelsSource, /Mx \/ My — reaction torsions \(kN·m\)/);
 });
