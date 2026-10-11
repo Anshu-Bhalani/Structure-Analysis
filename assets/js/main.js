@@ -458,15 +458,17 @@ function formatNum(num) {
 // ==========================================================================
 function getElementEInternal(tmpl) {
     if (!tmpl) return 0;
-    if (Number.isFinite(Number(tmpl.E_GPa))) return Number(tmpl.E_GPa) * 1e6;
+    const hasValue = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    if (hasValue(tmpl.E_GPa)) return Number(tmpl.E_GPa) * 1e6;
     // Legacy v14 stored E in N/m². Convert to the new GPa field.
-    if (Number.isFinite(Number(tmpl.E))) return Number(tmpl.E) / 1000;
+    if (hasValue(tmpl.E)) return Number(tmpl.E) / 1000;
     return 0;
 }
 
 function migrateUnitSystem() {
     model.elementTemplates = (model.elementTemplates || []).map((tmpl) => {
-        if (!Number.isFinite(Number(tmpl.E_GPa)) && Number.isFinite(Number(tmpl.E))) {
+        const hasValue = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+        if (!hasValue(tmpl.E_GPa) && hasValue(tmpl.E)) {
             // Legacy E values were entered as N/m². 1 GPa = 1e9 N/m².
             tmpl.E_GPa = Number(tmpl.E) / 1e9;
             delete tmpl.E;
@@ -1036,6 +1038,9 @@ function validatePersistedInputModel(source) {
     const supportIds = new Set([...idSets.supportTemplates, "FIXED", "ROLLER", "HINGED"]);
 
     collections.loadCases.forEach((loadCase) => {
+        if (!["Dead", "Live", "Self Weight"].includes(loadCase.type)) {
+            throw new Error(`Load case '${loadCase.id}' has unsupported type '${loadCase.type}'.`);
+        }
         const memberWeights = loadCase.memberSelfWeights;
         if (memberWeights === undefined) return;
         if (!memberWeights || typeof memberWeights !== "object" || Array.isArray(memberWeights)) {
@@ -1057,11 +1062,13 @@ function validatePersistedInputModel(source) {
 
     collections.elementTemplates.forEach((template) => {
         const grid = source.analysisMode === "grid";
-        const legacyE = template.E_GPa ?? template.E;
+        const legacyE = template.E_GPa === undefined || template.E_GPa === null || template.E_GPa === ""
+            ? template.E : template.E_GPa;
         requireFiniteField({ E: legacyE }, "E", `Element template '${template.id}' E`, { exclusiveMin: 0 });
         requireFiniteField(template, "I", `Element template '${template.id}' I`, { min: 0 });
         if (grid) {
-            const legacyG = template.G_GPa ?? template.G;
+            const legacyG = template.G_GPa === undefined || template.G_GPa === null || template.G_GPa === ""
+                ? template.G : template.G_GPa;
             requireFiniteField({ G: legacyG }, "G", `Grid element template '${template.id}' G`, { exclusiveMin: 0 });
             requireFiniteField(template, "J", `Grid element template '${template.id}' J`, { exclusiveMin: 0 });
             requireFiniteField(template, "I", `Grid element template '${template.id}' I`, { exclusiveMin: 0 });
@@ -1129,6 +1136,14 @@ function validatePersistedInputModel(source) {
     };
 
     collections.loads.forEach((load) => {
+        const axisSystem = load.axisSystem;
+        if (axisSystem !== undefined && axisSystem !== null && axisSystem !== "" &&
+            !["Global", "Local", "Angled"].includes(axisSystem)) {
+            throw new Error(`Load '${load.id}' has unsupported axis system '${axisSystem}'.`);
+        }
+        if (load.type === "Nodal Load" && axisSystem === "Local") {
+            throw new Error(`Nodal load '${load.id}' cannot use the Local axis system.`);
+        }
         requireReference(load.loadCaseId, loadCaseIds, `load-case reference on load '${load.id}'`);
         // "Element Load" is a legacy alias still handled by both solver paths.
         if (!["Nodal Load", "Element Point Load", "Element Load", "Element UDL"].includes(load.type)) {
@@ -1161,6 +1176,12 @@ function validatePersistedInputModel(source) {
             requireFiniteField(load, field, `Load '${load.id}' ${field}`, { optional: true });
         });
     });
+    collections.momentCases.forEach((momentCase) => {
+        if (!["Dead", "Live", "Self Weight"].includes(momentCase.type)) {
+            throw new Error(`Moment/torsion case '${momentCase.id}' has unsupported type '${momentCase.type}'.`);
+        }
+    });
+
     collections.moments.forEach((moment) => {
         requireReference(moment.momentCaseId, momentCaseIds, `moment-case reference on moment '${moment.id}'`);
         if (!["Nodal Moment", "Element Moment"].includes(moment.type)) {
@@ -1184,10 +1205,30 @@ function validatePersistedInputModel(source) {
     return true;
 }
 
+function resetAllEditForms() {
+    // Edit IDs belong to the model currently loaded in the workspace.
+    const resetters = [
+        () => typeof resetNodeForm === "function" && resetNodeForm(),
+        () => typeof resetElementTemplateForm === "function" && resetElementTemplateForm(),
+        () => typeof resetElementAssignmentForm === "function" && resetElementAssignmentForm(),
+        () => typeof resetSupportForm === "function" && resetSupportForm(),
+        () => typeof resetSupportAssignmentForm === "function" && resetSupportAssignmentForm(),
+        () => typeof resetLoadCaseForm === "function" && resetLoadCaseForm(),
+        () => typeof resetLoadForm === "function" && resetLoadForm(),
+        () => typeof resetMomentCaseForm === "function" && resetMomentCaseForm(),
+        () => typeof resetMomentForm === "function" && resetMomentForm(),
+    ];
+    resetters.forEach((reset) => {
+        try { reset(); }
+        catch (error) { console.warn("[Model switch] Could not reset an edit form.", error); }
+    });
+}
+
 function applyPersistedInputModel(source) {
     // Normalize legacy weight fields and validate before mutating live state.
     const normalizedSource = normalizeLegacySelfWeightModel(source);
     validatePersistedInputModel(normalizedSource);
+    resetAllEditForms();
     AppConfig.persistedModelKeys.forEach((key) => {
         model[key] = Array.isArray(normalizedSource?.[key]) ? normalizedSource[key] : [];
     });
@@ -1556,6 +1597,16 @@ function openSavedModel(modelId) {
         return;
     }
 
+    // The saved snapshot above is stale once the current workspace is saved.
+    // If Open is clicked on the already-active model, save and stay on that live copy.
+    if (modelId === currentModelLibraryId) {
+        if (hasModelInputData()) saveCurrentModelToLibrary(true);
+        renderModelLibrary();
+        const dashboardBtn = document.querySelector('.nav-btn[data-section="dashboard"]');
+        switchSection("dashboard", dashboardBtn);
+        return;
+    }
+
     // Protect the current work from accidental loss by saving it first when it
     // contains input data. This does not alter the active solver state.
     if (hasModelInputData()) saveCurrentModelToLibrary(true);
@@ -1650,6 +1701,7 @@ function createNewModelFromDialog(event) {
 
 function createNewModelRecord(modelName, analysisMode) {
     if (hasModelInputData()) saveCurrentModelToLibrary(true);
+    resetAllEditForms();
     // Re-check after autosaving the previous model to guard every creation
     // path, including the prompt fallback and future callers.
     modelName = getAvailableModelName(modelName, getModelLibrary());
@@ -1665,6 +1717,8 @@ function createNewModelRecord(modelName, analysisMode) {
     ensureBuiltInSupportTemplates();
     currentModelLibraryId = "";
     safeStorageRemoveItem("structuralCurrentModelId");
+    // This legacy snapshot may belong to the model that was open before this new workspace.
+    safeStorageRemoveItem("structuralInputModel");
     safeStorageSetItem("structuralModelName", modelName);
 
     const nameInput = document.getElementById("modelName");
@@ -1857,6 +1911,8 @@ function importModel(event) {
                 ensureBuiltInSupportTemplates();
                 currentModelLibraryId = "";
                 safeStorageRemoveItem("structuralCurrentModelId");
+                // Avoid restoring the pre-import workspace as if it were the imported model after refresh.
+                safeStorageRemoveItem("structuralInputModel");
 
                 const importedBaseName = file.name.replace(/\.json$/i, "").trim();
                 const importedName = importedBaseName
@@ -1883,6 +1939,7 @@ function importModel(event) {
 }
 
 function resetActiveModelAfterSavedModelDeletion() {
+    resetAllEditForms();
     AppConfig.persistedModelKeys.forEach((key) => { model[key] = []; });
     model.dofSettings = { skipAxial: false, skipMoment: false };
     model.analysisMode = "plane";
@@ -1902,6 +1959,7 @@ function resetActiveModelAfterSavedModelDeletion() {
 function clearModel() {
     if (!confirm("Delete the entire current input model? Saved models in the Home library will not be deleted.")) return;
 
+    resetAllEditForms();
     AppConfig.persistedModelKeys.forEach((key) => {
         model[key] = [];
     });
@@ -2447,11 +2505,12 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
     // Migrate older files whose E and G values were stored in N/m².
     normalized.elementTemplates = normalized.elementTemplates.map(template => {
       const item = { ...template };
-      if (!Number.isFinite(Number(item.E_GPa)) && Number.isFinite(Number(item.E))) {
+      const hasValue = value => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+      if (!hasValue(item.E_GPa) && hasValue(item.E)) {
         item.E_GPa = Number(item.E) / 1e9;
         delete item.E;
       }
-      if (!Number.isFinite(Number(item.G_GPa)) && Number.isFinite(Number(item.G))) {
+      if (!hasValue(item.G_GPa) && hasValue(item.G)) {
         item.G_GPa = Number(item.G) / 1e9;
         delete item.G;
       }
@@ -2472,15 +2531,17 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
 
   function getElementEInternal(template) {
     if (!template) return 0;
-    if (Number.isFinite(Number(template.E_GPa))) return Number(template.E_GPa) * 1e6;
-    if (Number.isFinite(Number(template.E))) return Number(template.E) / 1000;
+    const hasValue = value => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    if (hasValue(template.E_GPa)) return Number(template.E_GPa) * 1e6;
+    if (hasValue(template.E)) return Number(template.E) / 1000;
     return 0;
   }
 
   function getElementGInternal(template) {
     if (!template) return 0;
-    if (Number.isFinite(Number(template.G_GPa))) return Number(template.G_GPa) * 1e6;
-    if (Number.isFinite(Number(template.G))) return Number(template.G) / 1000;
+    const hasValue = value => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    if (hasValue(template.G_GPa)) return Number(template.G_GPa) * 1e6;
+    if (hasValue(template.G)) return Number(template.G) / 1000;
     return 0;
   }
 
