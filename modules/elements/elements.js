@@ -19,7 +19,6 @@ mountModuleHTML(".container", "beforeend", `
                     <div class="field"><label for="elementI">Moment of Inertia (I)</label><div class="input-wrap has-unit"><input id="elementI" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m⁴</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementI')">e</button></div></div>
                     <div class="field"><label for="elementE">Modulus of Elasticity (E)</label><div class="input-wrap has-unit"><input id="elementE" type="text" inputmode="decimal" placeholder="200" value="200"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementE')">e</button></div></div>
                     <div class="field plane-only-property"><label for="elementA">Cross-sectional Area (A)</label><div class="input-wrap has-unit"><input id="elementA" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m²</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementA')">e</button></div></div>
-                    <div class="field"><label for="elementSelfWeight" id="elementWeightLabel">Self Weight</label><div class="input-wrap has-unit"><input id="elementSelfWeight" type="text" inputmode="decimal" placeholder="0" value="0"><span id="elementWeightUnit" class="input-unit">kN/m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementSelfWeight')">e</button></div><small class="field-hint">Applied downward only when a Self Weight load case is selected.</small></div>
                 </div>
                 <div id="gridElementProperties" class="grid grid-2" style="display:none; margin-top:14px;">
                     <div class="field"><label for="elementG">Shear Modulus (G)</label><div class="input-wrap has-unit"><input id="elementG" type="text" inputmode="decimal" placeholder="80" value="80"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementG')">e</button></div></div>
@@ -41,7 +40,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Template ID</th><th>I (m⁴)</th><th>E (GPa)</th><th class="grid-only-property" style="display:none;">G (GPa)</th><th class="grid-only-property" style="display:none;">J (m⁴)</th><th class="plane-only-property">A (m²)</th><th>Self Weight</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Template ID</th><th>I (m⁴)</th><th>E (GPa)</th><th class="grid-only-property" style="display:none;">G (GPa)</th><th class="grid-only-property" style="display:none;">J (m⁴)</th><th class="plane-only-property">A (m²)</th><th>Actions</th></tr></thead>
                     <tbody id="elementTemplateTable"></tbody>
                 </table>
             </div>
@@ -109,11 +108,10 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
     if (!id) return alert("Element Template ID is required.");
     if (hasId(model.elementTemplates, id, editingElementTemplateId)) return alert("Element Template ID already exists.");
     const gridMode = isGridAnalysisMode();
-    const I = num("elementI"), E_GPa = num("elementE"), G_GPa = num("elementG"), J = num("elementJ"), A = num("elementA"), selfWeight = num("elementSelfWeight");
+    const I = num("elementI"), E_GPa = num("elementE"), G_GPa = num("elementG"), J = num("elementJ"), A = num("elementA");
     const validations = [
         [I, "Moment of Inertia (I)", gridMode ? { minExclusive: 0 } : { min: 0 }],
         [E_GPa, "Modulus of Elasticity (E)", { minExclusive: 0 }],
-        [selfWeight, "Self Weight (kN/m)", { min: 0 }],
     ];
     if (gridMode) {
         validations.push([G_GPa, "Shear Modulus (G)", { minExclusive: 0 }], [J, "Torsional Constant (J)", { minExclusive: 0 }]);
@@ -131,8 +129,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
         id, I, E_GPa,
         G_GPa: gridMode ? G_GPa : undefined,
         J: gridMode ? J : undefined,
-        A: gridMode ? undefined : A,
-        selfWeight
+        A: gridMode ? undefined : A
     };
     if (editingElementTemplateId !== null) {
         const updated = updateElementTemplate(editingElementTemplateId, data);
@@ -161,7 +158,6 @@ function editElementTemplate(encodedId) {
     document.getElementById("elementG").value = template.G_GPa ?? "";
     document.getElementById("elementJ").value = template.J ?? "";
     document.getElementById("elementA").value = template.A ?? "1";
-    document.getElementById("elementSelfWeight").value = template.selfWeight ?? 0;
     updateElementWeightUnit();
     document.getElementById("elementTemplateSubmitBtn").textContent = "Update Element Template";
 }
@@ -169,9 +165,9 @@ function renderElementTemplates() {
     const tbody = document.getElementById("elementTemplateTable");
     const search = val("elementTemplateSearch").toLowerCase();
     const rows = model.elementTemplates.filter((e) => e.id.toLowerCase().includes(search));
-    if (!rows.length) return showEmpty("elementTemplateTable", isGridAnalysisMode() ? 7 : 6);
+    if (!rows.length) return showEmpty("elementTemplateTable", isGridAnalysisMode() ? 6 : 5);
     tbody.innerHTML = rows.map((e) =>
-        `<tr data-sort-collection="elementTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-blue">${escapeHtml(e.id)}</span></td><td>${formatNum(e.I)}</td><td>${formatNum(Number(e.E_GPa))}</td><td class="grid-only-property" style="display:none;">${e.G_GPa === undefined || e.G_GPa === "" ? "—" : formatNum(Number(e.G_GPa))}</td><td class="grid-only-property" style="display:none;">${e.J === undefined || e.J === "" ? "—" : formatNum(Number(e.J))}</td><td class="plane-only-property">${e.A === undefined || e.A === "" ? "—" : formatNum(Number(e.A))}</td><td>${formatNum(Number(e.selfWeight) || 0)} kN/m</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit element template ${escapeHtml(e.id)}" title="Edit element template ${escapeHtml(e.id)}" onclick="editElementTemplate('${encodeInlineArgument(e.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete element template ${escapeHtml(e.id)}" title="Delete element template ${escapeHtml(e.id)}" onclick="deleteItem('elementTemplates','${encodeInlineArgument(e.id)}','id')">×</button></div></td></tr>`
+        `<tr data-sort-collection="elementTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-blue">${escapeHtml(e.id)}</span></td><td>${formatNum(e.I)}</td><td>${formatNum(Number(e.E_GPa))}</td><td class="grid-only-property" style="display:none;">${e.G_GPa === undefined || e.G_GPa === "" ? "—" : formatNum(Number(e.G_GPa))}</td><td class="grid-only-property" style="display:none;">${e.J === undefined || e.J === "" ? "—" : formatNum(Number(e.J))}</td><td class="plane-only-property">${e.A === undefined || e.A === "" ? "—" : formatNum(Number(e.A))}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit element template ${escapeHtml(e.id)}" title="Edit element template ${escapeHtml(e.id)}" onclick="editElementTemplate('${encodeInlineArgument(e.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete element template ${escapeHtml(e.id)}" title="Delete element template ${escapeHtml(e.id)}" onclick="deleteItem('elementTemplates','${encodeInlineArgument(e.id)}','id')">×</button></div></td></tr>`
     ).join("");
 }
 

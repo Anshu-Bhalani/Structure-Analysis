@@ -509,59 +509,110 @@ function requireFinite(value, label, options = {}) {
 function normalizeLegacySelfWeightModel(source) {
     if (!source || typeof source !== "object" || Array.isArray(source) || !Array.isArray(source.elementTemplates)) return source;
     const grid = source.analysisMode === "grid";
+    const legacyWeightsByTemplate = new Map();
+
+    // Migrate old template-level weight values to per-element values stored on
+    // Self Weight load cases. Element templates no longer own self-weight.
     const elementTemplates = source.elementTemplates.map((original, index) => {
         if (!original || typeof original !== "object" || Array.isArray(original)) return original;
         const template = { ...original };
+        let legacyWeight;
+        let hasLegacyWeight = false;
+
         if (Object.prototype.hasOwnProperty.call(template, "selfWeight")) {
-            delete template.density;
-            delete template.selfWeightType;
-            return template;
-        }
-
-        const hasLegacyWeight = Object.prototype.hasOwnProperty.call(template, "density") ||
-            Object.prototype.hasOwnProperty.call(template, "selfWeightType");
-        if (!hasLegacyWeight) {
-            template.selfWeight = 0;
-            delete template.density;
-            delete template.selfWeightType;
-            return template;
-        }
-
-        const rawWeight = template.density === undefined || template.density === null || template.density === ""
-            ? 0 : Number(template.density);
-        if (!Number.isFinite(rawWeight) || rawWeight < 0) {
-            template.selfWeight = template.density;
-            delete template.density;
-            delete template.selfWeightType;
-            return template; // canonical validator reports the invalid value
-        }
-
-        const legacyType = template.selfWeightType || "density";
-        if (legacyType === "lineWeight") {
-            template.selfWeight = rawWeight;
-        } else if (legacyType === "density") {
-            if (rawWeight > 0) {
-                if (grid) {
-                    throw new Error(`Element template '${template.id ?? index + 1}' has an older weight value that cannot be converted safely for Grid. Re-enter Self Weight in kN/m.`);
-                }
-                const area = Number(template.A);
-                if (area === 0 && Number(template.I) > 0) {
-                    throw new Error(`Beam template '${template.id ?? index + 1}' has an older weight value but A = 0. Re-enter Self Weight in kN/m.`);
-                }
-                template.selfWeight = rawWeight * area * 9.81 / 1000;
+            legacyWeight = template.selfWeight;
+            hasLegacyWeight = true;
+        } else if (Object.prototype.hasOwnProperty.call(template, "density") ||
+                   Object.prototype.hasOwnProperty.call(template, "selfWeightType")) {
+            const rawWeight = template.density === undefined || template.density === null || template.density === ""
+                ? 0 : Number(template.density);
+            if (!Number.isFinite(rawWeight) || rawWeight < 0) {
+                legacyWeight = template.density;
+                hasLegacyWeight = true;
             } else {
-                template.selfWeight = 0;
+                const legacyType = template.selfWeightType || "density";
+                if (legacyType === "lineWeight") {
+                    legacyWeight = rawWeight;
+                } else if (legacyType === "density") {
+                    if (rawWeight > 0) {
+                        if (grid) {
+                            throw new Error("Element template '" + (template.id ?? index + 1) +
+                                "' has an older weight value that cannot be converted safely for Grid. Re-enter self-weight in the Self Weight load case.");
+                        }
+                        const area = Number(template.A);
+                        if (area === 0 && Number(template.I) > 0) {
+                            throw new Error("Beam template '" + (template.id ?? index + 1) +
+                                "' has an older weight value but A = 0. Re-enter self-weight in the Self Weight load case.");
+                        }
+                        legacyWeight = rawWeight * area * 9.81 / 1000;
+                    } else {
+                        legacyWeight = 0;
+                    }
+                } else {
+                    throw new Error("Element template '" + (template.id ?? index + 1) +
+                        "' has an unsupported old self-weight format.");
+                }
+                hasLegacyWeight = true;
             }
-        } else {
-            throw new Error(`Element template '${template.id ?? index + 1}' has an unsupported old self-weight format.`);
         }
+
+        if (hasLegacyWeight && template.id !== undefined && template.id !== null) {
+            legacyWeightsByTemplate.set(String(template.id), legacyWeight);
+        }
+        delete template.selfWeight;
         delete template.density;
         delete template.selfWeightType;
         return template;
     });
-    return { ...source, elementTemplates };
-}
 
+    const normalized = { ...source, elementTemplates };
+    const elements = Array.isArray(source.elements) ? source.elements : [];
+    const legacyMemberWeights = {};
+    elements.forEach((element) => {
+        const templateId = String(element.templateId ?? "");
+        if (legacyWeightsByTemplate.has(templateId)) {
+            legacyMemberWeights[String(element.id)] = legacyWeightsByTemplate.get(templateId);
+        }
+    });
+
+    const hasPositiveLegacyWeight = Object.values(legacyMemberWeights).some((value) => Number(value) > 0);
+    if (Array.isArray(source.loadCases)) {
+        let loadCases = source.loadCases.map((loadCase) => ({ ...loadCase }));
+        const hasSelfWeightCase = loadCases.some((loadCase) => loadCase.type === "Self Weight");
+        if (Object.keys(legacyMemberWeights).length && hasSelfWeightCase) {
+            loadCases = loadCases.map((loadCase) => {
+                if (loadCase.type !== "Self Weight") return loadCase;
+                return {
+                    ...loadCase,
+                    memberSelfWeights: {
+                        ...legacyMemberWeights,
+                        ...(loadCase.memberSelfWeights && typeof loadCase.memberSelfWeights === "object"
+                            ? loadCase.memberSelfWeights : {})
+                    }
+                };
+            });
+        } else if (hasPositiveLegacyWeight && !hasSelfWeightCase) {
+            let id = "SW1";
+            let suffix = 2;
+            while (loadCases.some((loadCase) => String(loadCase.id) === id)) id = "SW" + suffix++;
+            loadCases.push({
+                id,
+                type: "Self Weight",
+                description: "Migrated member self-weight",
+                memberSelfWeights: { ...legacyMemberWeights }
+            });
+        }
+        normalized.loadCases = loadCases;
+    } else if (source.loadCases === undefined && hasPositiveLegacyWeight) {
+        normalized.loadCases = [{
+            id: "SW1",
+            type: "Self Weight",
+            description: "Migrated member self-weight",
+            memberSelfWeights: { ...legacyMemberWeights }
+        }];
+    }
+    return normalized;
+}
 function hasId(items, id, editingId = null) {
     return Array.isArray(items) && items.some((item) => String(item.id) === String(id) && String(item.id) !== String(editingId));
 }
@@ -900,11 +951,11 @@ function getPersistedInputModel() {
     // copying those objects directly would make exported/saved files enormous.
     const INPUT_FIELD_KEYS = {
         nodes: ["id", "x", "y", "z"],
-        elementTemplates: ["id", "I", "E_GPa", "G_GPa", "J", "A", "selfWeight"],
+        elementTemplates: ["id", "I", "E_GPa", "G_GPa", "J", "A"],
         elements: ["id", "templateId", "startNode", "endNode"],
         supportTemplates: ["id", "description", "type", "builtIn", "restraints", "displacement"],
         supportAssignments: ["id", "supportId", "nodeId"],
-        loadCases: ["id", "type", "description"],
+        loadCases: ["id", "type", "description", "memberSelfWeights"],
         loads: ["id", "loadCaseId", "type", "nodeId", "elementId", "axisSystem", "angle", "distance", "distanceEnd", "Fx", "Fy", "Fz", "FxEnd", "FyEnd", "FzEnd"],
         momentCases: ["id", "type", "description"],
         moments: ["id", "momentCaseId", "type", "nodeId", "elementId", "distance", "Mx", "My", "Mz"],
@@ -1005,6 +1056,21 @@ function validatePersistedInputModel(source) {
     const momentCaseIds = idSets.momentCases;
     const supportIds = new Set([...idSets.supportTemplates, "FIXED", "ROLLER", "HINGED"]);
 
+    collections.loadCases.forEach((loadCase) => {
+        const memberWeights = loadCase.memberSelfWeights;
+        if (memberWeights === undefined) return;
+        if (!memberWeights || typeof memberWeights !== "object" || Array.isArray(memberWeights)) {
+            throw new Error("Load case '" + loadCase.id + "' memberSelfWeights must be an object keyed by element ID.");
+        }
+        Object.entries(memberWeights).forEach(([elementId, weight]) => {
+            if (!elementIds.has(String(elementId))) {
+                throw new Error("Load case '" + loadCase.id + "' self-weight references unknown element '" + elementId + "'.");
+            }
+            requireFiniteField({ weight }, "weight", "Load case '" + loadCase.id +
+                "' self-weight for element '" + elementId + "' (kN/m)", { min: 0 });
+        });
+    });
+
     collections.nodes.forEach((node) => {
         requireFiniteField(node, "x", `Node '${node.id}' X coordinate`);
         requireFiniteField(node, "y", `Node '${node.id}' Y coordinate`);
@@ -1027,7 +1093,6 @@ function validatePersistedInputModel(source) {
                 throw new Error(`Element template '${template.id}' cannot have both A and I equal to zero.`);
             }
         }
-        requireFiniteField(template, "selfWeight", `Element template '${template.id}' self-weight (kN/m)`, { min: 0 });
     });
 
     collections.supportTemplates.forEach((support) => {
@@ -2691,9 +2756,9 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
       const localPointMoments = [];
       const activeLC = model.loadCases.find(item => String(item.id) === activeLoadCaseId);
 
-      if (Number(template.selfWeight) > 0 && activeLC && activeLC.type === "Self Weight") {
-        // Self-weight is always supplied as a downward line load (kN/m).
-        const q = -Number(template.selfWeight);
+      if (Number(activeLC?.memberSelfWeights?.[String(element.id)]) > 0 && activeLC?.type === "Self Weight") {
+        // Self-weight is a per-element downward line load stored on this case.
+        const q = -Number(activeLC.memberSelfWeights[String(element.id)]);
         const fixedEnd = gridUDLLoadVector(q, q, 0, p.L, p.L);
         for (let i = 0; i < 6; i++) AML[i][0] -= fixedEnd[i][0];
 
