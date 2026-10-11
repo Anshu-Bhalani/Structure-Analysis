@@ -59,6 +59,7 @@ function updateLoadCase(existingId, data) {
     if (!loadCase) return false;
     const oldId = loadCase.id;
     Object.assign(loadCase, data);
+    if (data.type !== "Self Weight") delete loadCase.memberSelfWeights;
     if (oldId !== data.id) {
         model.loads.forEach((load) => { if (load.loadCaseId === oldId) load.loadCaseId = data.id; });
         if (activeLoadCaseId === oldId) activeLoadCaseId = data.id;
@@ -81,7 +82,7 @@ document.getElementById("loadCaseForm").addEventListener("submit", (e) => {
         for (const element of model.elements) {
             const input = Array.from(document.querySelectorAll("#selfWeightMemberInputs [data-self-weight-element]"))
                 .find((item) => String(item.dataset.selfWeightElement) === String(element.id));
-            const raw = input ? input.value.trim() : "0";
+            const raw = input ? input.value.trim() : "";
             const weight = raw === "" ? NaN : Number(raw);
             if (!Number.isFinite(weight) || weight < 0) {
                 return alert(`Self-weight for element '${element.id}' must be a finite number greater than or equal to 0 kN/m.`);
@@ -150,7 +151,7 @@ function renderSelfWeightMemberInputs(preserveLiveValues = true) {
         const id = String(element.id);
         const value = Object.prototype.hasOwnProperty.call(liveValues, id)
             ? liveValues[id]
-            : (Object.prototype.hasOwnProperty.call(savedValues, id) ? savedValues[id] : 0);
+            : (Object.prototype.hasOwnProperty.call(savedValues, id) ? savedValues[id] : "");
         return '<div class="field"><label>Element ' + escapeHtml(id) + '</label>' +
             '<div class="input-wrap has-unit"><input type="text" inputmode="decimal" data-self-weight-element="' + escapeHtml(id) +
             '" aria-label="Self-weight for element ' + escapeHtml(id) + '" value="' + escapeHtml(value) + '">' +
@@ -170,8 +171,13 @@ function renderLoadCases() {
             ? loadCase.memberSelfWeights : {};
         const weightSummary = loadCase.type === "Self Weight"
             ? (model.elements.length
-                ? model.elements.map((element) => escapeHtml(element.id) + ": " +
-                    formatNum(Number(weights[String(element.id)]) || 0)).join("; ") + " kN/m"
+                ? model.elements.map((element) => {
+                    const elementId = String(element.id);
+                    const isSet = Object.prototype.hasOwnProperty.call(weights, elementId) &&
+                        weights[elementId] !== undefined && weights[elementId] !== null && weights[elementId] !== "" &&
+                        Number.isFinite(Number(weights[elementId])) && Number(weights[elementId]) >= 0;
+                    return escapeHtml(elementId) + ": " + (isSet ? formatNum(Number(weights[elementId])) : '<strong style="color:#b45309;">Not set</strong>');
+                }).join("; ") + " kN/m"
                 : "No elements")
             : "—";
         return `<tr data-sort-collection="loadCases" data-sort-id="${escapeHtml(encodeInlineArgument(loadCase.id))}"><td>${sortHandle(loadCase.id)}${escapeHtml(loadCase.id)}</td><td><span class="badge badge-blue">${escapeHtml(loadCase.type)}</span></td><td>${escapeHtml(loadCase.description)}</td><td>${weightSummary}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit load case ${escapeHtml(loadCase.id)}" title="Edit load case ${escapeHtml(loadCase.id)}" onclick="editLoadCase('${encodeInlineArgument(loadCase.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete load case ${escapeHtml(loadCase.id)}" title="Delete load case ${escapeHtml(loadCase.id)}" onclick="deleteItem('loadCases','${encodeInlineArgument(loadCase.id)}','id')">×</button></div></td></tr>`;
