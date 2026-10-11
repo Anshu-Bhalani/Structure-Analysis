@@ -91,7 +91,7 @@ test("Grid batch PDF includes applicable self-weight when there are no explicit 
     model.loads = [];
     model.loadCases = [
         { id: "LC1", type: "Dead" },
-        { id: "SW1", type: "Self Weight", memberSelfWeights: { E1: 2 } }
+        { id: "SW1", type: "Self Weight", memberSelfWeights: { E1: 2, E2: 0 } }
     ];
     model.moments = [];
     const result = chooseBatchCaseCombinations(model);
@@ -103,4 +103,26 @@ test("silent batch export recognizes both plane and Grid success messages", () =
     assert.equal(isBatchAnalysisSuccessMessage("Analysis completed successfully using the LPW-3 Stiffness Method approach."), true);
     assert.equal(isBatchAnalysisSuccessMessage("Grid analysis completed successfully using the Grid Stiffness Method."), true);
     assert.equal(isBatchAnalysisSuccessMessage("Analysis results were computed, but the global equilibrium check failed."), false);
+});
+
+
+test("Grid batch PDF refuses to use zero for a Self Weight element that was never configured", () => {
+    const model = gridModel();
+    model.loadCases = [{ id: "SW1", type: "Self Weight", memberSelfWeights: { E1: 2 } }];
+    model.loads = [];
+    model.moments = [];
+    const result = chooseBatchCaseCombinations(model);
+    assert.equal(result.ok, false);
+    assert.match(result.message, /Self Weight case "SW1".*element "E2"/);
+});
+
+test("Plane batch PDF also refuses incomplete per-element Self Weight data", () => {
+    const model = gridModel();
+    model.analysisMode = "plane";
+    model.loadCases = [{ id: "SW1", type: "Self Weight", memberSelfWeights: { E1: 2 } }];
+    model.loads = [];
+    model.moments = [];
+    const result = chooseBatchCaseCombinations(model);
+    assert.equal(result.ok, false);
+    assert.match(result.message, /Self Weight case "SW1".*element "E2"/);
 });
