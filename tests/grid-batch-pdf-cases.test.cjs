@@ -126,3 +126,16 @@ test("Plane batch PDF also refuses incomplete per-element Self Weight data", () 
     assert.equal(result.ok, false);
     assert.match(result.message, /Self Weight case "SW1".*element "E2"/);
 });
+
+test("Batch PDF flags a missing Self Weight even when all configured weights are zero", () => {
+    for (const mode of ["plane", "grid"]) {
+        const model = gridModel();
+        model.analysisMode = mode;
+        model.loadCases = [{ id: "SW1", type: "Self Weight", memberSelfWeights: { E1: 0 } }];
+        model.loads = [];
+        model.moments = [];
+        const result = chooseBatchCaseCombinations(model);
+        assert.equal(result.ok, false, mode);
+        assert.match(result.message, /Self Weight case "SW1".*element "E2"/);
+    }
+});
