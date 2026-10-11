@@ -467,13 +467,14 @@ function chooseUnambiguousBatchCases(modelData) {
     }
     const loadCases = Array.isArray(modelData?.loadCases) ? modelData.loadCases : [];
     const loads = Array.isArray(modelData?.loads) ? modelData.loads : [];
-    const templates = Array.isArray(modelData?.elementTemplates) ? modelData.elementTemplates : [];
     const elements = Array.isArray(modelData?.elements) ? modelData.elements : [];
     const momentCases = Array.isArray(modelData?.momentCases) ? modelData.momentCases : [];
     const moments = Array.isArray(modelData?.moments) ? modelData.moments : [];
-    const usedTemplateIds = new Set(elements.map((element) => String(element?.templateId ?? "")));
-    const hasSelfWeightData = templates.some((template) => usedTemplateIds.has(String(template?.id ?? "")) && Number(template?.selfWeight) > 0);
     const selfWeightCases = loadCases.filter((loadCase) => loadCase?.type === "Self Weight");
+    const elementIds = new Set(elements.map((element) => String(element?.id ?? "")));
+    const hasSelfWeightData = selfWeightCases.some((loadCase) =>
+        Object.entries(loadCase?.memberSelfWeights || {}).some(([elementId, weight]) => elementIds.has(String(elementId)) && Number(weight) > 0)
+    );
     if (hasSelfWeightData && selfWeightCases.length !== 1) {
         return { ok: false, message: "Batch PDF export cannot safely choose the self-weight analysis: this model needs exactly one Self Weight case. Open the model and export its Results after choosing the intended case." };
     }

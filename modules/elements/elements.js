@@ -143,7 +143,6 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
 });
 function resetElementTemplateForm() {
     document.getElementById("elementTemplateForm").reset();
-    updateElementWeightUnit();
     editingElementTemplateId = null;
     document.getElementById("elementTemplateSubmitBtn").textContent = "Create Element Template";
 }
@@ -158,7 +157,6 @@ function editElementTemplate(encodedId) {
     document.getElementById("elementG").value = template.G_GPa ?? "";
     document.getElementById("elementJ").value = template.J ?? "";
     document.getElementById("elementA").value = template.A ?? "1";
-    updateElementWeightUnit();
     document.getElementById("elementTemplateSubmitBtn").textContent = "Update Element Template";
 }
 function renderElementTemplates() {
@@ -187,6 +185,14 @@ function updateElement(existingId, data) {
     if (oldId !== data.id) {
         model.loads.forEach((load) => { if (load.elementId === oldId) load.elementId = data.id; });
         model.moments.forEach((moment) => { if (moment.elementId === oldId) moment.elementId = data.id; });
+        model.loadCases.forEach((loadCase) => {
+            const weights = loadCase.memberSelfWeights;
+            if (!weights || typeof weights !== "object" || Array.isArray(weights)) return;
+            if (Object.prototype.hasOwnProperty.call(weights, String(oldId))) {
+                weights[String(data.id)] = weights[String(oldId)];
+                delete weights[String(oldId)];
+            }
+        });
     }
     markAnalysisInvalidated();
     return true;

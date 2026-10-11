@@ -27,7 +27,7 @@ mountModuleHTML(".container", "beforeend", `
             <div class="model-note">
                 <strong>Recommended input sequence:</strong><br><br>
                 1. Create Nodes → define X, Y and Z coordinates.<br>
-                2. Create Element Templates → <span id="dashboardElementTemplateInstruction">define I, E, A and Self Weight (kN/m).</span><br>
+                2. Create Element Templates → <span id="dashboardElementTemplateInstruction">define I, E and A. Set each member's Self Weight (kN/m) in a Self Weight load case.</span><br>
                 3. Assign Elements → connect start and end nodes.<br>
                 4. Create Support Templates → define restraints and prescribed displacements.<br>
                 5. Assign Supports → apply support definitions to nodes.<br>
@@ -55,7 +55,7 @@ function updateStats() {
     setText("statMomentsLabel", isGrid ? "TORSIONS" : "MOMENTS");
     setText("dashboardElementTemplateInstruction", isGrid
         ? "define I, J, E and G."
-        : "define I, E, A and Self Weight (kN/m).");
+        : "define I, E and A. Set each member's Self Weight (kN/m) in a Self Weight load case.");
     setText("dashboardMomentCaseInstruction", isGrid
         ? "Create Torsion Cases → define Dead, Live or Self Weight cases."
         : "Create Moment Cases → define Dead, Live or Self Weight cases.");

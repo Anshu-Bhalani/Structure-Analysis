@@ -503,10 +503,10 @@ function calculateEquilibriumResiduals(AC, dofMap, modelNodes, restIndices, AR) 
             addPureMoment(Number(m.Mz) || 0);
         });
 
-        // Self-weight is an explicit line load, applied only in a Self Weight case.
-        const activeLoadCase = model.loadCases.find((lc) => lc.id === activeLoadCaseId);
+        // Per-element self-weight is applied only from the active Self Weight case.
+        const activeLoadCase = model.loadCases.find((lc) => String(lc.id) === String(activeLoadCaseId));
         if (activeLoadCase?.type === "Self Weight") {
-            const selfWeight = Number(tmpl.selfWeight) || 0;
+            const selfWeight = Number(activeLoadCase.memberSelfWeights?.[String(el.id)]) || 0;
             if (selfWeight > 0) {
                 const weightPerLength = -selfWeight;
                 addElementUDLResultant(el, 0, L, 0, weightPerLength, 0, weightPerLength);
@@ -685,13 +685,14 @@ function calculateGridEquilibriumResiduals(AC, dofMap, modelNodes, restIndices, 
             const n1 = modelNodes.find((node) => String(node.id) === String(el.startNode));
             const n2 = modelNodes.find((node) => String(node.id) === String(el.endNode));
             const template = model.elementTemplates.find((item) => String(item.id) === String(el.templateId));
-            if (!n1 || !n2 || !template || !(Number(template.selfWeight) > 0)) return;
+            const selfWeight = Number(activeCase.memberSelfWeights?.[String(el.id)]) || 0;
+            if (!n1 || !n2 || !template || !(selfWeight > 0)) return;
             const dx = (Number(n2.x) || 0) - (Number(n1.x) || 0);
             const dy = (Number(n2.y) || 0) - (Number(n1.y) || 0);
             const L = Math.hypot(dx, dy);
             if (!(L > 0)) return;
             // Self-weight is stored directly as a line load (kN/m).
-            const q = -Number(template.selfWeight);
+            const q = -selfWeight;
             if (q !== 0) addGridUDLResultant(el, 0, L, q, q);
         });
     }
@@ -1039,7 +1040,7 @@ function runAnalysisCore() {
     const activeLoadCount = model.loads.filter(isActiveLoadCase).length;
     const activeMomentCount = model.moments.filter(isActiveMomentCase).length;
     if (model.loads.length > 0 && activeLoadCount === 0 && activeLoadCase?.type !== "Self Weight") {
-        return alert(`No loads belong to Active Load Case "${activeLoadCaseId}". Choose a case containing loads or select a Self Weight case that applies automatic member weight.`);
+        return alert(`No loads belong to Active Load Case "${activeLoadCaseId}". Choose a case containing loads or select a Self Weight case with per-element weights.`);
     }
     if (model.moments.length > 0 && activeMomentCount === 0) {
         return alert(`No moments belong to Active Moment Case "${activeMomentCaseId}". Choose a case containing moments.`);
@@ -1070,10 +1071,10 @@ function runAnalysisCore() {
     }
 
     const activeCaseLabel = getActiveAnalysisCaseLabel();
-    const hasSelfWeightData = model.elementTemplates.some((template) => Number(template.selfWeight) > 0);
+    const hasSelfWeightData = model.loadCases.some((loadCase) => loadCase.type === "Self Weight" && Object.values(loadCase.memberSelfWeights || {}).some((weight) => Number(weight) > 0));
     if (hasSelfWeightData && activeLoadCase?.type !== "Self Weight") {
         const useSelfWeight = confirm(
-            `The selected Load Case "${activeLoadCaseId}" is not a Self Weight case. Element self-weight will be excluded from this analysis.\n\nContinue?`,
+            `The selected Load Case "${activeLoadCaseId}" is not a Self Weight case. Self-weight from the other case will be excluded from this analysis.\n\nContinue?`,
         );
         if (!useSelfWeight) return;
     }

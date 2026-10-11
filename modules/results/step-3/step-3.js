@@ -178,8 +178,8 @@ function solveStep3(ctx, step1) {
         el.localUDLs = [];
         el.localPointMoments = [];
 
-        const selfWeight = Number(tmpl.selfWeight) || 0;
-        const activeLoadCase = model.loadCases.find((lc) => lc.id === activeLoadCaseId);
+        const activeLoadCase = model.loadCases.find((lc) => String(lc.id) === String(activeLoadCaseId));
+        const selfWeight = Number(activeLoadCase?.memberSelfWeights?.[String(el.id)]) || 0;
         const includeSelfWeight = activeLoadCase?.type === "Self Weight";
         if (selfWeight > 0 && includeSelfWeight) {
             const W_Y = -selfWeight;
