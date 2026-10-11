@@ -2196,7 +2196,7 @@ function pdfCollectReportSections() {
             ? {
                 afd: "Torsion Diagram (Mx)",
                 sfd: "Vertical Shear Diagram (Fz)",
-                bmd: "Bending Moment Diagram (My)",
+                bmd: "Torsion Diagram (My)",
             }
             : {
                 afd: "Axial Force Diagram (AFD)",
@@ -2208,7 +2208,7 @@ function pdfCollectReportSections() {
         );
         sections.push({
             label: "Step 8 of 8",
-            html: `<div class="calc-step"><h4>${isGridAnalysisMode() ? "Step 8: Grid Torsion, Vertical Shear and Bending Diagrams (Mx, Fz, My)" : "Step 8: Axial Force, Shear Force and Bending Moment Diagrams (AFD, SFD, BMD)"}</h4><p>Diagrams derived from the member end actions [AM] recovered in Step 7 and the intermediate member loads.</p>${blocks.join("")}</div>`,
+            html: `<div class="calc-step"><h4>${isGridAnalysisMode() ? "Step 8: Grid Torsion (Mx, My) and Vertical Shear (Fz) Diagrams" : "Step 8: Axial Force, Shear Force and Bending Moment Diagrams (AFD, SFD, BMD)"}</h4><p>Diagrams derived from the member end actions [AM] recovered in Step 7 and the intermediate member loads.</p>${blocks.join("")}</div>`,
         });
     } catch (err) {
         console.error(err);
