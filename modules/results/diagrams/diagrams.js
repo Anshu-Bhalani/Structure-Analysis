@@ -2924,6 +2924,9 @@ function openFullScreen(source) {
     } else {
         currentFSMode = "model";
     }
+    // Reapply solver-specific text immediately before the picker becomes visible.
+    // The shared internal values (afd/sfd/bmd) remain unchanged.
+    if (typeof syncDiagramModeLabels === "function") syncDiagramModeLabels();
     document.getElementById("fsModeSelect").value = currentFSMode;
     const modal = document.getElementById("fsModal");
     modal.classList.add("active");

@@ -262,6 +262,23 @@ function isGridAnalysisMode() {
     return model.analysisMode === "grid";
 }
 
+// Keep both diagram selectors aligned with the current solver mode. This can
+// also be called immediately before opening the fullscreen picker, so its labels
+// do not depend solely on the earlier model-load synchronization.
+function syncDiagramModeLabels() {
+    const diagramLabels = isGridAnalysisMode()
+        ? { afd: "Torsion (Mx)", sfd: "Vertical Shear (Fz)", bmd: "Torsion (My)" }
+        : { afd: "AFD", sfd: "SFD", bmd: "BMD" };
+    ["resultsDiagramMode", "fsModeSelect"].forEach((selectId) => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        Object.entries(diagramLabels).forEach(([value, label]) => {
+            const option = Array.from(select.options || []).find((item) => item.value === value);
+            if (option) option.textContent = label;
+        });
+    });
+}
+
 function syncAnalysisModeUI() {
     const gridMode = isGridAnalysisMode();
     const typeBadge = document.getElementById("currentModelTypeBadge");
@@ -290,19 +307,7 @@ function syncAnalysisModeUI() {
             ? "Grid geometry lies in the XY plane; node Z coordinates are unused. Grid DOFs: θX, θY and ΔZ. Grid templates require positive E, G, I and J. Loads use Fz; torsion uses Mx (+ right/− left) and My (+ up/− down)."
             : "Plane analysis classifies each element as Beam, Truss or Frame from its A and I values.";
     }
-    // Preserve the internal AFD/SFD/BMD keys used by the shared diagram engine,
-    // while showing the physical Grid quantities in both diagram selectors.
-    const diagramLabels = gridMode
-        ? { afd: "Torsion (Mx)", sfd: "Vertical Shear (Fz)", bmd: "Torsion (My)" }
-        : { afd: "AFD", sfd: "SFD", bmd: "BMD" };
-    ["resultsDiagramMode", "fsModeSelect"].forEach((selectId) => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        Object.entries(diagramLabels).forEach(([value, label]) => {
-            const option = Array.from(select.options || []).find((item) => item.value === value);
-            if (option) option.textContent = label;
-        });
-    });
+    syncDiagramModeLabels();
 
     const setLabel = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     const setSupportDescription = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
