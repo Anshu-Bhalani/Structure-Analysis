@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "assets/js/main.js"), "utf8");
 const resultsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/results.js"), "utf8");
 const diagramsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/diagrams/diagrams.js"), "utf8");
+const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
 function section(source, startMarker, endMarker) {
     const start = source.indexOf(startMarker);
@@ -300,4 +301,40 @@ test("Grid My diagram is described as torsion in selectors, legends, and PDF out
     assert.match(diagramsForDiagramLabelsSource, /'Negative My torsion'/);
     assert.match(diagramsForDiagramLabelsSource, /'Grid torsion about Y'/);
     assert.match(diagramsForDiagramLabelsSource, /Mx \/ My — reaction torsions \(kN·m\)/);
+});
+
+
+test("Grid diagram labels refresh at fullscreen open and corrected scripts bypass stale cache", () => {
+    const helperSource = section(mainSource, "function syncDiagramModeLabels() {", "\nfunction syncAnalysisModeUI() {");
+    const makeSelect = () => ({
+        options: ["afd", "sfd", "bmd", "displacement"].map((value) => ({ value, textContent: value }))
+    });
+    const selects = {
+        resultsDiagramMode: makeSelect(),
+        fsModeSelect: makeSelect()
+    };
+    const fakeDocument = { getElementById: (id) => selects[id] || null };
+
+    const syncGridLabels = new Function("isGridAnalysisMode", "document",
+        helperSource + "\nreturn syncDiagramModeLabels;"
+    )(() => true, fakeDocument);
+    syncGridLabels();
+    for (const select of Object.values(selects)) {
+        assert.equal(select.options.find((option) => option.value === "afd").textContent, "Torsion (Mx)");
+        assert.equal(select.options.find((option) => option.value === "sfd").textContent, "Vertical Shear (Fz)");
+        assert.equal(select.options.find((option) => option.value === "bmd").textContent, "Torsion (My)");
+    }
+
+    const openSource = section(diagramsForDiagramLabelsSource, "function openFullScreen(source) {", "\nfunction changeFSMode(mode) {");
+    assert.match(openSource, /syncDiagramModeLabels\(\)/);
+    assert.ok(openSource.indexOf("syncDiagramModeLabels()") < openSource.indexOf('getElementById("fsModeSelect").value'));
+
+    const version = "v=20261011-grid-my-torsion-refresh";
+    for (const file of [
+        "assets/js/main.js",
+        "modules/results/results.js",
+        "modules/results/diagrams/diagrams.js"
+    ]) {
+        assert.ok(indexSource.includes(file + "?" + version), "missing cache-busted script reference for " + file);
+    }
 });
