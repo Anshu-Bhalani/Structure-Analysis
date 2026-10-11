@@ -2696,6 +2696,12 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
         const q = -Number(template.selfWeight);
         const fixedEnd = gridUDLLoadVector(q, q, 0, p.L, p.L);
         for (let i = 0; i < 6; i++) AML[i][0] -= fixedEnd[i][0];
+
+        // Keep the same load in the member-load data consumed by Step 8 and
+        // the internal-action diagrams. AML already contains the fixed-end
+        // action above; this record is for plotting/reporting only and must
+        // not be assembled into AML a second time.
+        localUDLs.push({ startDistance: 0, endDistance: p.L, q1: q, q2: q });
       }
 
       model.loads.forEach(load => {
