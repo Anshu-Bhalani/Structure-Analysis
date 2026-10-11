@@ -243,6 +243,20 @@ function renderModelLibrary() {
     }
 
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        if (currentStatusEl) {
+            currentStatusEl.textContent = "Library unavailable";
+            currentStatusEl.className = "badge badge-red";
+        }
+        if (countEl) countEl.textContent = "Unavailable";
+        grid.innerHTML = `<div class="home-empty" style="grid-column:1 / -1;">
+            <div class="home-empty-icon">⚠</div>
+            <h4>Saved-model library could not be read</h4>
+            <p>The stored library has not been overwritten. Export the current workspace as JSON and keep a backup before attempting browser-storage recovery.</p>
+        </div>`;
+        updateModelSelectionToolbar();
+        return;
+    }
     const activeSavedModel = currentModelLibraryId ? library[currentModelLibraryId] : null;
     const liveCurrentData = getPersistedInputModel();
     const currentModelHasUnsavedChanges = !!activeSavedModel && (
@@ -418,6 +432,10 @@ function getSelectedModelSnapshots() {
 
 function exportSelectedModelsJSON() {
     const items = getSelectedModelSnapshots();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     if (!items.length) {
         alert("Select at least one model first.");
         return;
@@ -442,6 +460,10 @@ function exportSelectedModelsJSON() {
 
 function deleteSelectedModels() {
     const library = getModelLibrary();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     const ids = Array.from(selectedModelIds).filter((id) => library[id]);
     if (!ids.length) {
         alert("Select at least one model first.");
@@ -549,6 +571,10 @@ function solveModelSilently(data) {
 async function exportSelectedModelsPDF() {
     if (pdfExportBusy) return;
     const items = getSelectedModelSnapshots();
+    if (lastModelLibraryReadFailed) {
+        alert(getModelLibraryReadFailureMessage());
+        return;
+    }
     if (!items.length) {
         alert("Select at least one model first.");
         return;
