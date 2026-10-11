@@ -531,9 +531,73 @@ function chooseUnambiguousBatchCases(modelData) {
     };
 }
 
+// A Home-screen batch export has no active case selector. For plane models,
+// retain the established safety rule and refuse to guess between multiple
+// cases. Grid models can export every defined, applicable load-case / torsion-
+// case combination instead of failing just because the model has alternatives.
+function chooseBatchCaseCombinations(modelData) {
+    if (modelData?.analysisMode !== "grid") {
+        const choice = chooseUnambiguousBatchCases(modelData);
+        return choice.ok ? { ok: true, choices: [choice] } : choice;
+    }
+
+    let normalized;
+    try {
+        normalized = normalizeLegacySelfWeightModel(modelData);
+    } catch (error) {
+        return { ok: false, message: error.message || "Legacy self-weight data could not be converted safely. Review the model before batch export." };
+    }
+
+    const loadCases = Array.isArray(normalized?.loadCases) ? normalized.loadCases : [];
+    const loads = Array.isArray(normalized?.loads) ? normalized.loads : [];
+    const elements = Array.isArray(normalized?.elements) ? normalized.elements : [];
+    const moments = Array.isArray(normalized?.moments) ? normalized.moments : [];
+    const elementIds = new Set(elements.map((element) => String(element?.id ?? "")));
+
+    // Every case containing explicit loads is a candidate. A Self Weight case
+    // is also included when it has a positive weight for an existing element,
+    // even if it has no explicit load rows. Set semantics avoid duplicate case
+    // reports when a Self Weight case contains both types of input.
+    const loadCaseIds = new Set(
+        loads.map((load) => String(load?.loadCaseId ?? "")).filter(Boolean)
+    );
+    loadCases.filter((loadCase) => loadCase?.type === "Self Weight").forEach((loadCase) => {
+        const hasApplicableWeight = Object.entries(loadCase?.memberSelfWeights || {}).some(
+            ([elementId, weight]) => elementIds.has(String(elementId)) && Number(weight) > 0
+        );
+        if (hasApplicableWeight && loadCase.id !== undefined && loadCase.id !== null && String(loadCase.id)) {
+            loadCaseIds.add(String(loadCase.id));
+        }
+    });
+
+    const momentCaseIds = new Set(
+        moments.map((moment) => String(moment?.momentCaseId ?? "")).filter(Boolean)
+    );
+    // Empty models retain the same default-case behavior as opening a model
+    // and running its analysis from the Results page.
+    if (!loadCaseIds.size) loadCaseIds.add("");
+    if (!momentCaseIds.size) momentCaseIds.add("");
+
+    const choices = [...loadCaseIds].flatMap((loadCaseId) =>
+        [...momentCaseIds].map((momentCaseId) => ({
+            ok: true,
+            loadCaseId,
+            momentCaseId,
+        }))
+    );
+    return { ok: true, choices };
+}
+
+// runAnalysisCore uses a mode-specific success message. Recognize both the
+// plane and Grid forms so a successful Grid solve is not misclassified as an
+// error by the silent Home-screen exporter.
+function isBatchAnalysisSuccessMessage(message) {
+    return /^(?:Grid )?analysis completed successfully\b/i.test(String(message || ""));
+}
+
 // Loads a model's input data into the working model and solves it without any
 // dialogs. Returns { ok, message, sections, caseLabel }.
-function solveModelSilently(data) {
+function solveModelSilently(data, caseChoiceOverride = null) {
     const captured = [];
     const origAlert = window.alert;
     const origConfirm = window.confirm;
@@ -544,7 +608,7 @@ function solveModelSilently(data) {
         migrateUnitSystem();
         ensureBuiltInSupportTemplates();
 
-        const caseChoice = chooseUnambiguousBatchCases(model);
+        const caseChoice = caseChoiceOverride || chooseUnambiguousBatchCases(model);
         if (!caseChoice.ok) return { ok: false, message: caseChoice.message };
         activeLoadCaseId = caseChoice.loadCaseId;
         activeMomentCaseId = caseChoice.momentCaseId;
@@ -553,7 +617,7 @@ function solveModelSilently(data) {
         analysisState.status = "not-run";
         runAnalysisCore();
 
-        const problems = captured.filter((m) => !/^Analysis completed successfully/.test(m));
+        const problems = captured.filter((m) => !isBatchAnalysisSuccessMessage(m));
         if (analysisState.status !== "valid" || problems.length) {
             return { ok: false, message: problems.join(" ") || "The analysis did not complete." };
         }
@@ -589,6 +653,7 @@ async function exportSelectedModelsPDF() {
     let frame = null;
     const solved = [];
     const failed = [];
+    let hasExpandedCaseReports = false;
 
     // Keep the user's current work so it can be put back afterwards.
     const snap = {
@@ -600,10 +665,36 @@ async function exportSelectedModelsPDF() {
 
     try {
         for (let i = 0; i < items.length; i++) {
-            await pdfShowProgress(`Solving model ${i + 1} of ${items.length}: ${items[i].name}…`);
-            const r = solveModelSilently(items[i].data);
-            if (r.ok) solved.push({ name: items[i].name, sections: r.sections, caseLabel: r.caseLabel });
-            else failed.push({ name: items[i].name, message: r.message });
+            const item = items[i];
+            const casePlan = chooseBatchCaseCombinations(item.data);
+            if (!casePlan.ok) {
+                failed.push({ name: item.name, message: casePlan.message });
+                continue;
+            }
+            if (item.data?.analysisMode === "grid" && casePlan.choices.length > 1) {
+                hasExpandedCaseReports = true;
+            }
+
+            for (let j = 0; j < casePlan.choices.length; j++) {
+                const caseChoice = casePlan.choices[j];
+                const caseDescription = `Load Case ${caseChoice.loadCaseId || "None"} / Torsion Case ${caseChoice.momentCaseId || "None"}`;
+                const caseProgress = casePlan.choices.length > 1 ? ` — ${caseDescription}` : "";
+                await pdfShowProgress(`Solving model ${i + 1} of ${items.length}: ${item.name}${caseProgress}…`);
+                const r = solveModelSilently(item.data, caseChoice);
+                if (r.ok) {
+                    solved.push({
+                        modelKey: item.id || item.name,
+                        name: item.name,
+                        sections: r.sections,
+                        caseLabel: r.caseLabel,
+                    });
+                } else {
+                    failed.push({
+                        name: item.name,
+                        message: casePlan.choices.length > 1 ? `${caseDescription}: ${r.message}` : r.message,
+                    });
+                }
+            }
         }
     } finally {
         // Restore the model that was open before the batch started.
@@ -667,18 +758,25 @@ async function exportSelectedModelsPDF() {
         const dateText = new Date().toLocaleDateString();
         for (let k = 0; k < solved.length; k++) {
             const multi = solved.length > 1;
+            const reportPrefix = multi
+                ? (hasExpandedCaseReports ? `Report ${k + 1} of ${solved.length}` : `Model ${k + 1} of ${solved.length}`)
+                : "";
             const meta = {
                 modelName: solved[k].name,
                 caseLabel: solved[k].caseLabel,
                 dateText,
-                sectionPrefix: multi ? `Model ${k + 1} of ${solved.length} · ` : "",
-                progressPrefix: multi ? `Model ${k + 1} of ${solved.length} — ` : "",
+                sectionPrefix: multi ? `${reportPrefix} · ` : "",
+                progressPrefix: multi ? `${reportPrefix} — ` : "",
             };
             await pdfRenderSectionsToPages({ frame, doc, win, root }, solved[k].sections, meta, jpegPages);
         }
 
         await pdfShowProgress("Creating PDF file…");
-        const title = solved.length === 1 ? `${solved[0].name} - Analysis Report` : `Selected Models (${solved.length}) - Analysis Report`;
+        const title = solved.length === 1
+            ? `${solved[0].name} - Analysis Report`
+            : (hasExpandedCaseReports
+                ? `Analysis Reports (${solved.length}) - Analysis Report`
+                : `Selected Models (${solved.length}) - Analysis Report`);
         const blob = pdfBuildFile(jpegPages, title);
         pdfDownloadBlob(blob, `${sanitizeFileName(title)}.pdf`);
     } catch (err) {
