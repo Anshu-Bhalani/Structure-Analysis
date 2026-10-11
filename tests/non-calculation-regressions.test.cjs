@@ -7,6 +7,8 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "assets/js/main.js"), "utf8");
+const resultsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/results.js"), "utf8");
+const diagramsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/diagrams/diagrams.js"), "utf8");
 
 function section(source, startMarker, endMarker) {
     const start = source.indexOf(startMarker);
@@ -128,7 +130,7 @@ test("malformed saved-library data is preserved and a save is refused", () => {
 });
 
 test("application JavaScript files parse", () => {
-    const files = ["assets/js/main.js", "modules/home/home.js", "modules/nodes/nodes.js", "modules/elements/elements.js", "modules/load-case/load-case.js", "modules/load/load.js", "modules/moment-case/moment-case.js", "modules/moment/moment.js", "modules/results/results.js"];
+    const files = ["assets/js/main.js", "modules/home/home.js", "modules/nodes/nodes.js", "modules/elements/elements.js", "modules/load-case/load-case.js", "modules/load/load.js", "modules/moment-case/moment-case.js", "modules/moment/moment.js", "modules/results/results.js", "modules/results/diagrams/diagrams.js"];
     for (const relativePath of files) {
         const source = fs.readFileSync(path.join(root, relativePath), "utf8");
         assert.doesNotThrow(() => new Function(source), relativePath + " should parse");
@@ -280,4 +282,23 @@ test("storage failure is reported as failure and never as a successful save", ()
     assert.equal(state.failed, true);
     assert.ok(state.alerts.some((message) => /NOT confirmed saved/.test(message)));
     assert.ok(state.alerts.every((message) => !/saved in browser storage/.test(message)));
+});
+
+
+test("Grid My diagram is described as torsion in selectors, legends, and PDF output", () => {
+    const gridDiagramLabelsSource = section(mainSource, "const diagramLabels = gridMode", "\\n    [\\"resultsDiagramMode\\"");
+    assert.match(gridDiagramLabelsSource, /bmd: "Torsion \\(My\\)"/);
+    assert.doesNotMatch(gridDiagramLabelsSource, /Bending Moment \\(My\\)/);
+    assert.match(gridDiagramLabelsSource, /\\{ afd: "Torsion \\(Mx\\)", sfd: "Vertical Shear \\(Fz\\)", bmd: "Torsion \\(My\\)" \\}/);
+    assert.match(mainSource, /bmd: "BMD"/, "the plane-model selector must retain its original label");
+
+    assert.match(resultsForDiagramLabelsSource, /bmd: "Torsion Diagram \\(My\\)"/);
+    assert.match(resultsForDiagramLabelsSource, /Step 8: Grid Torsion \\(Mx, My\\) and Vertical Shear \\(Fz\\) Diagrams/);
+    assert.match(resultsForDiagramLabelsSource, /bmd: "Bending Moment Diagram \\(BMD\\)"/, "plane-model PDF naming must remain unchanged");
+
+    assert.match(diagramsForDiagramLabelsSource, /'Grid My torsion diagram'/);
+    assert.match(diagramsForDiagramLabelsSource, /'Positive My torsion'/);
+    assert.match(diagramsForDiagramLabelsSource, /'Negative My torsion'/);
+    assert.match(diagramsForDiagramLabelsSource, /'Grid torsion about Y'/);
+    assert.match(diagramsForDiagramLabelsSource, /Mx \/ My — reaction torsions \\(kN·m\\)/);
 });
