@@ -293,7 +293,7 @@ function syncAnalysisModeUI() {
     // Preserve the internal AFD/SFD/BMD keys used by the shared diagram engine,
     // while showing the physical Grid quantities in both diagram selectors.
     const diagramLabels = gridMode
-        ? { afd: "Torsion (Mx)", sfd: "Vertical Shear (Fz)", bmd: "Bending Moment (My)" }
+        ? { afd: "Torsion (Mx)", sfd: "Vertical Shear (Fz)", bmd: "Torsion (My)" }
         : { afd: "AFD", sfd: "SFD", bmd: "BMD" };
     ["resultsDiagramMode", "fsModeSelect"].forEach((selectId) => {
         const select = document.getElementById(selectId);

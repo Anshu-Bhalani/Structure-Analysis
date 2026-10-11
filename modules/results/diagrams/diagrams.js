@@ -2356,7 +2356,7 @@ function buildResultDiagramLegend(mode, deformationScale = 1) {
         return `<div class="result-diagram-fixed-legend" style="${legendStyle}">
             <div style="font-weight:800;margin-bottom:2px">${isGridAnalysisMode() ? 'Grid support reactions' : 'Reaction directions'}</div>
             ${isGridAnalysisMode()
-                ? '<div>Mx / My — reaction moments (kN·m)</div><div>Fz — vertical reaction (kN)</div>'
+                ? '<div>Mx / My — reaction torsions (kN·m)</div><div>Fz — vertical reaction (kN)</div>'
                 : '<div>↑ Positive Fy — global +Y</div><div>→ Positive Fx — global +X</div><div>↺ Positive Mz — anticlockwise</div>'}
         </div>`;
     }
@@ -2370,10 +2370,10 @@ function buildResultDiagramLegend(mode, deformationScale = 1) {
     }
     if (mode === 'bmd') {
         return `<div class="result-diagram-fixed-legend" style="${legendStyle}">
-            <div style="font-weight:800;margin-bottom:2px">${isGridAnalysisMode() ? 'Grid My diagram' : 'BMD convention'}</div>
-            <div>${legendSwatch('#dc2626', isGridAnalysisMode() ? 'Positive My moment' : 'Positive moment (+M)')}</div>
-            <div>${legendSwatch('#7c3aed', isGridAnalysisMode() ? 'Negative My moment' : 'Negative moment (−M)')}</div>
-            <div style="margin-top:2px">${isGridAnalysisMode() ? 'Grid bending about Y' : 'Local +Mz / positive BMD'}</div>
+            <div style="font-weight:800;margin-bottom:2px">${isGridAnalysisMode() ? 'Grid My torsion diagram' : 'BMD convention'}</div>
+            <div>${legendSwatch('#dc2626', isGridAnalysisMode() ? 'Positive My torsion' : 'Positive moment (+M)')}</div>
+            <div>${legendSwatch('#7c3aed', isGridAnalysisMode() ? 'Negative My torsion' : 'Negative moment (−M)')}</div>
+            <div style="margin-top:2px">${isGridAnalysisMode() ? 'Grid torsion about Y' : 'Local +Mz / positive BMD'}</div>
         </div>`;
     }
     if (mode === 'afd') {
