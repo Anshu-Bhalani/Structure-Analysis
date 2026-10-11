@@ -81,7 +81,7 @@ function modelPreviewSVG(data) {
         </svg>`;
     }
 
-    const nodeById = {};
+    const nodeById = Object.create(null);
     nodes.forEach(n => { nodeById[String(n.id)] = n; });
 
     const xs = nodes.map(n => Number(n.x) || 0);
@@ -98,7 +98,7 @@ function modelPreviewSVG(data) {
     const sx = x => 55 + ((x - left) / Math.max(right - left, 1)) * 650;
     const sy = y => 210 - ((y - bottom) / Math.max(top - bottom, 1)) * 170;
 
-    const templateById = {};
+    const templateById = Object.create(null);
     (Array.isArray(data.elementTemplates) ? data.elementTemplates : []).forEach(t => {
         templateById[String(t.id)] = t;
     });
@@ -243,6 +243,12 @@ function renderModelLibrary() {
     }
 
     const library = getModelLibrary();
+    const activeSavedModel = currentModelLibraryId ? library[currentModelLibraryId] : null;
+    const liveCurrentData = getPersistedInputModel();
+    const currentModelHasUnsavedChanges = !!activeSavedModel && (
+        getModelName() !== String(activeSavedModel.name || "Structural Model") ||
+        modelDataFingerprint(liveCurrentData) !== modelDataFingerprint(activeSavedModel.data)
+    );
     const models = Object.values(library).sort((a, b) => {
         const at = new Date(a.updatedAt || 0).getTime();
         const bt = new Date(b.updatedAt || 0).getTime();
@@ -253,9 +259,9 @@ function renderModelLibrary() {
     if (countEl) countEl.textContent = `${models.length} ${models.length === 1 ? "Model" : "Models"}`;
 
     if (currentStatusEl) {
-        if (currentModelLibraryId && library[currentModelLibraryId]) {
-            currentStatusEl.textContent = "Saved";
-            currentStatusEl.className = "badge badge-green";
+        if (activeSavedModel) {
+            currentStatusEl.textContent = currentModelHasUnsavedChanges ? "Unsaved changes" : "Saved";
+            currentStatusEl.className = currentModelHasUnsavedChanges ? "badge badge-orange" : "badge badge-green";
         } else {
             currentStatusEl.textContent = "Not saved";
             currentStatusEl.className = "badge badge-gray";
@@ -274,12 +280,14 @@ function renderModelLibrary() {
     }
 
     grid.innerHTML = models.map((item) => {
-        const data = item.data || {};
+        const savedData = item.data || {};
+        const isCurrent = item.id === currentModelLibraryId;
+        const data = isCurrent ? liveCurrentData : savedData;
+        const displayName = isCurrent ? currentName : (item.name || "Structural Model");
         const nodes = Array.isArray(data.nodes) ? data.nodes.length : 0;
         const elements = Array.isArray(data.elements) ? data.elements.length : 0;
         const loads = Array.isArray(data.loads) ? data.loads.length : 0;
         const moments = Array.isArray(data.moments) ? data.moments.length : 0;
-        const isCurrent = item.id === currentModelLibraryId;
         const isGridModel = data.analysisMode === "grid";
         const modelTypeLabel = isGridModel ? "Grid Model" : "Beam / Truss / Frame Model";
         const modelTypeClass = isGridModel ? "badge-green" : "badge-blue";
@@ -287,13 +295,13 @@ function renderModelLibrary() {
         const isSelected = selectedModelIds.has(item.id);
         return `<article class="model-card${isCurrent ? " current" : ""}${isSelected ? " selected" : ""}">
             <div class="model-card-preview">
-                <label class="model-select-box" title="Select this model"><input type="checkbox" aria-label="Select model ${escapeHtml(item.name || "Structural Model")}" ${isSelected ? "checked" : ""} onchange="toggleModelSelection('${safeId}', this.checked)"></label>
+                <label class="model-select-box" title="Select this model"><input type="checkbox" aria-label="Select model ${escapeHtml(displayName)}" ${isSelected ? "checked" : ""} onchange="toggleModelSelection('${safeId}', this.checked)"></label>
                 <span class="home-preview-label">Structure Preview</span>
                 ${modelPreviewSVG(data)}
             </div>
             <div class="model-card-body">
                 <div class="model-card-title-row">
-                    <div class="model-card-name">${escapeHtml(item.name || "Structural Model")}</div>
+                    <div class="model-card-name">${escapeHtml(displayName)}</div>
                     <div class="model-card-badges">
                         <span class="badge ${modelTypeClass}">${modelTypeLabel}</span>
                         ${isCurrent ? '<span class="badge badge-gray">Current</span>' : ''}
@@ -306,7 +314,7 @@ function renderModelLibrary() {
                     <div class="model-card-stat"><div class="model-card-stat-label">${isGridModel ? "Torsions" : "Moments"}</div><div class="model-card-stat-value">${moments}</div></div>
                 </div>
                 <div class="model-card-foot">
-                    <span class="model-card-saved">Saved ${escapeHtml(formatModelSavedTime(item.updatedAt))}</span>
+                    <span class="model-card-saved">${isCurrent && currentModelHasUnsavedChanges ? "Unsaved changes" : `Saved ${escapeHtml(formatModelSavedTime(item.updatedAt))}`}</span>
                     <div class="model-card-actions">
                         <button type="button" class="icon-btn" onclick="openSavedModelFromInline('${safeId}')">Open</button>
                         <button type="button" class="icon-btn" onclick="exportSavedModelFromInline('${safeId}')">Export</button>
@@ -446,6 +454,10 @@ function deleteSelectedModels() {
     const deletedCurrentModel = ids.includes(currentModelLibraryId);
     ids.forEach((id) => { delete library[id]; });
     const remainingLibrary = setModelLibrary(library);
+    if (!lastModelLibraryWriteSucceeded) {
+        alert("The selected models were not deleted because browser storage rejected the library update. No deletion is confirmed.");
+        return;
+    }
     selectedModelIds.clear();
 
     if (deletedCurrentModel || Object.keys(remainingLibrary).length === 0) {

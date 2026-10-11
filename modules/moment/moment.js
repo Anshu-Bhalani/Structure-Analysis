@@ -148,8 +148,8 @@ document.getElementById("momentForm").addEventListener("submit", (e) => {
     if (caseError) return alert(caseError);
     const type = val("momentType");
     if (!["Nodal Moment", "Element Moment"].includes(type)) return alert(gridMode ? "Invalid torsion type." : "Invalid Moment Type.");
-    const Mx = num("momentX"), My = num("momentY"), Mz = gridMode ? 0 : num("momentZ");
-    const componentsToValidate = gridMode ? [[Mx, "Mx (Right/Left torsion)"], [My, "My (Up/Down torsion)"]] : [[Mx, "Mx"], [My, "My"], [Mz, "Mz"]];
+    const Mx = gridMode ? num("momentX") : 0, My = gridMode ? num("momentY") : 0, Mz = gridMode ? 0 : num("momentZ");
+    const componentsToValidate = gridMode ? [[Mx, "Mx (Right/Left torsion)"], [My, "My (Up/Down torsion)"]] : [[Mz, "Mz"]];
     for (const [value, label] of componentsToValidate) { const error = requireFinite(value, label); if (error) return alert(error); }
     let nodeId = "", elementId = "", distance = 0;
     if (type === "Nodal Moment") {

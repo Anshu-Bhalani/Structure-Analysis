@@ -214,10 +214,10 @@ document.getElementById("loadForm").addEventListener("submit", (e) => {
     const angle = gridMode || axisSystem !== "Angled" ? 0 : num("loadAngle");
     let error = !gridMode && axisSystem === "Angled" ? requireFinite(angle, "Load Angle") : null;
     if (error) return alert(error);
-    const Fx = gridMode ? 0 : num("loadFx"), Fy = gridMode ? 0 : num("loadFy"), Fz = num("loadFz");
-    const componentsToValidate = gridMode ? [[Fz, "Fz"]] : [[Fx, "Fx / F1"], [Fy, "Fy / F2"], [Fz, "Fz"]];
+    const Fx = gridMode ? 0 : num("loadFx"), Fy = gridMode ? 0 : num("loadFy"), Fz = gridMode ? num("loadFz") : 0;
+    const componentsToValidate = gridMode ? [[Fz, "Fz"]] : [[Fx, "Fx / F1"], [Fy, "Fy / F2"]];
     for (const [value, label] of componentsToValidate) { error = requireFinite(value, label); if (error) return alert(error); }
-    let FzEnd = Fz;
+    let FzEnd = gridMode ? Fz : 0;
     let nodeId = "", elementId = "", distance = 0, distanceEnd = "";
     if (type === "Nodal Load") {
         nodeId = val("loadNode");
@@ -241,8 +241,8 @@ document.getElementById("loadForm").addEventListener("submit", (e) => {
             if (!(distance < distanceEnd)) return alert("UDL interval must satisfy 0 ≤ a < b ≤ L.");
             const FxEnd = gridMode ? 0 : (val("loadFxEnd") === "" ? Fx : num("loadFxEnd"));
             const FyEnd = gridMode ? 0 : (val("loadFyEnd") === "" ? Fy : num("loadFyEnd"));
-            FzEnd = val("loadFzEnd") === "" ? Fz : num("loadFzEnd");
-            const endComponentsToValidate = gridMode ? [[FzEnd, "End Fz"]] : [[FxEnd, "End Fx / F1"], [FyEnd, "End Fy / F2"], [FzEnd, "End Fz"]];
+            FzEnd = gridMode ? (val("loadFzEnd") === "" ? Fz : num("loadFzEnd")) : 0;
+            const endComponentsToValidate = gridMode ? [[FzEnd, "End Fz"]] : [[FxEnd, "End Fx / F1"], [FyEnd, "End Fy / F2"]];
             for (const [value, label] of endComponentsToValidate) { error = requireFinite(value, label); if (error) return alert(error); }
         }
     }
