@@ -509,6 +509,13 @@ function chooseUnambiguousBatchCases(modelData) {
     const hasSelfWeightData = selfWeightCases.some((loadCase) =>
         Object.entries(loadCase?.memberSelfWeights || {}).some(([elementId, weight]) => elementIds.has(String(elementId)) && Number(weight) > 0)
     );
+    const incompleteSelfWeightCase = selfWeightCases.find((loadCase) =>
+        getMissingBatchSelfWeightElement(loadCase, elements)
+    );
+    if (incompleteSelfWeightCase) {
+        const missingElement = getMissingBatchSelfWeightElement(incompleteSelfWeightCase, elements);
+        return { ok: false, message: `Self Weight case "${incompleteSelfWeightCase.id}" has no valid weight for element "${missingElement.id}". Edit the case and enter a weight in kN/m (enter 0 only if zero is intentional).` };
+    }
     if (hasSelfWeightData && selfWeightCases.length !== 1) {
         return { ok: false, message: "Batch PDF export cannot safely choose the self-weight analysis: this model needs exactly one Self Weight case. Open the model and export its Results after choosing the intended case." };
     }
@@ -529,6 +536,18 @@ function chooseUnambiguousBatchCases(modelData) {
         loadCaseId: hasSelfWeightData ? String(selfWeightCases[0].id) : (loadCaseIdsWithLoads[0] || ""),
         momentCaseId: momentCaseIdsWithMoments[0] || "",
     };
+}
+
+function getMissingBatchSelfWeightElement(loadCase, elements) {
+    const weights = loadCase?.memberSelfWeights && typeof loadCase.memberSelfWeights === "object"
+        ? loadCase.memberSelfWeights : {};
+    return elements.find((element) => {
+        const id = String(element?.id ?? "");
+        if (!Object.prototype.hasOwnProperty.call(weights, id)) return true;
+        const weight = weights[id];
+        return weight === undefined || weight === null || weight === "" ||
+            !Number.isFinite(Number(weight)) || Number(weight) < 0;
+    }) || null;
 }
 
 // A Home-screen batch export has no active case selector. For plane models,
@@ -561,14 +580,18 @@ function chooseBatchCaseCombinations(modelData) {
     const loadCaseIds = new Set(
         loads.map((load) => String(load?.loadCaseId ?? "")).filter(Boolean)
     );
-    loadCases.filter((loadCase) => loadCase?.type === "Self Weight").forEach((loadCase) => {
+    for (const loadCase of loadCases.filter((item) => item?.type === "Self Weight")) {
         const hasApplicableWeight = Object.entries(loadCase?.memberSelfWeights || {}).some(
             ([elementId, weight]) => elementIds.has(String(elementId)) && Number(weight) > 0
         );
+        const missingElement = getMissingBatchSelfWeightElement(loadCase, elements);
+        if (missingElement) {
+            return { ok: false, message: `Self Weight case "${loadCase.id}" has no valid weight for element "${missingElement.id}". Edit the case and enter a weight in kN/m (enter 0 only if zero is intentional).` };
+        }
         if (hasApplicableWeight && loadCase.id !== undefined && loadCase.id !== null && String(loadCase.id)) {
             loadCaseIds.add(String(loadCase.id));
         }
-    });
+    }
 
     const momentCaseIds = new Set(
         moments.map((moment) => String(moment?.momentCaseId ?? "")).filter(Boolean)

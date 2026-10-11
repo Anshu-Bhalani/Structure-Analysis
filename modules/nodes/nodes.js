@@ -65,6 +65,48 @@ function findCollapsedConnectedElement(nodeId, x, y) {
     }) || null;
 }
 
+function findNodeMoveDistanceViolation(nodeId, x, y) {
+    for (const element of model.elements) {
+        const touchesStart = String(element.startNode) === String(nodeId);
+        const touchesEnd = String(element.endNode) === String(nodeId);
+        if (!touchesStart && !touchesEnd) continue;
+
+        const startNode = model.nodes.find((node) => String(node.id) === String(element.startNode));
+        const endNode = model.nodes.find((node) => String(node.id) === String(element.endNode));
+        if (!startNode || !endNode) continue;
+        const startX = touchesStart ? Number(x) : Number(startNode.x);
+        const startY = touchesStart ? Number(y) : Number(startNode.y);
+        const endX = touchesEnd ? Number(x) : Number(endNode.x);
+        const endY = touchesEnd ? Number(y) : Number(endNode.y);
+        const length = Math.hypot(endX - startX, endY - startY);
+        if (!Number.isFinite(length) || length <= 0) continue; // zero length has its own validation message
+
+        for (const load of model.loads) {
+            if (String(load.elementId) !== String(element.id) ||
+                !["Element Point Load", "Element Load", "Element UDL"].includes(load.type)) continue;
+            const a = Number(load.distance);
+            if (!Number.isFinite(a) || a < 0 || a > length) {
+                return `Moving this node would make load "${load.id}" start distance invalid: it must satisfy 0 ≤ a ≤ the new element length (${length} m).`;
+            }
+            if (load.type === "Element UDL") {
+                const endDistance = load.distanceEnd === undefined || load.distanceEnd === null || load.distanceEnd === ""
+                    ? length : Number(load.distanceEnd);
+                if (!Number.isFinite(endDistance) || endDistance < 0 || endDistance > length || !(a < endDistance)) {
+                    return `Moving this node would make UDL "${load.id}" invalid: its interval must satisfy 0 ≤ a < b ≤ the new element length (${length} m).`;
+                }
+            }
+        }
+        for (const moment of model.moments) {
+            if (String(moment.elementId) !== String(element.id) || moment.type !== "Element Moment") continue;
+            const distance = Number(moment.distance);
+            if (!Number.isFinite(distance) || distance < 0 || distance > length) {
+                return `Moving this node would make moment/torsion "${moment.id}" distance invalid: it must satisfy 0 ≤ a ≤ the new element length (${length} m).`;
+            }
+        }
+    }
+    return null;
+}
+
 function updateNode(existingId, id, x, y, z) {
     const node = model.nodes.find((n) => n.id === existingId);
     if (!node) return false;
@@ -98,6 +140,8 @@ document.getElementById("nodeForm").addEventListener("submit", (e) => {
         if (collapsedElement) {
             return alert(`Node edit would make element "${collapsedElement.id}" zero-length. Move the node to a different X/Y coordinate before saving.`);
         }
+        const distanceViolation = findNodeMoveDistanceViolation(editingNodeId, x, y);
+        if (distanceViolation) return alert(distanceViolation);
         const updated = updateNode(editingNodeId, id, x, y, z);
         if (!updated) {
             editingNodeId = null;

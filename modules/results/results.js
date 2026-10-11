@@ -1075,6 +1075,11 @@ function runAnalysisCore() {
         return alert(`No moments belong to Active Moment Case "${activeMomentCaseId}". Choose a case containing moments.`);
     }
 
+    const missingSelfWeightElement = getMissingSelfWeightElement(activeLoadCase);
+    if (missingSelfWeightElement) {
+        return alert(`Self Weight Load Case "${activeLoadCaseId}" has no valid weight for element "${missingSelfWeightElement.id}". Edit the load case and enter its self-weight in kN/m (enter 0 only if zero is intentional).`);
+    }
+
     // Grid's supplied calculation engine is a 3-DOF plate-grid formulation:
     // θX, θY and ΔZ. Reject components that its model does not represent
     // rather than silently dropping them during assembly.
