@@ -128,7 +128,7 @@ test("malformed saved-library data is preserved and a save is refused", () => {
 });
 
 test("application JavaScript files parse", () => {
-    const files = ["assets/js/main.js", "modules/home/home.js", "modules/load/load.js", "modules/moment/moment.js", "modules/results/results.js"];
+    const files = ["assets/js/main.js", "modules/home/home.js", "modules/nodes/nodes.js", "modules/elements/elements.js", "modules/load-case/load-case.js", "modules/load/load.js", "modules/moment-case/moment-case.js", "modules/moment/moment.js", "modules/results/results.js"];
     for (const relativePath of files) {
         const source = fs.readFileSync(path.join(root, relativePath), "utf8");
         assert.doesNotThrow(() => new Function(source), relativePath + " should parse");
