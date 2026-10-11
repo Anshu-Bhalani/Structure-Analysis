@@ -1,0 +1,29 @@
+/* ==========================================================================
+ * step-8.css
+ * Styles specific to Results > Step 8 (final result tables).
+ * ========================================================================== */
+
+.final-results-grid {
+    display: grid;
+    gap: 18px;
+}
+
+.final-result-block {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    overflow: hidden;
+}
+
+.final-result-title {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+    font-size: 14px;
+    font-weight: 800;
+    color: #1f2937;
+}
+
+.final-result-block .table-wrap {
+    padding: 0;
+}
