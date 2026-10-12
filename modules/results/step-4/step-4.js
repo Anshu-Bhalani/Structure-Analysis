@@ -36,17 +36,24 @@ function buildPrescribedMovementActionVector(SJ, prescribedDisp) {
     return { Dp, AD };
 }
 
-// Step 4: Assemble [AC] = [AE] + [AJ] + [AD], display the assembled system,
-// then guard against zero-stiffness (unstable) DoFs before partitioning.
+// Step 4: Assemble [AC] = [AE] + [AJ] + [AD] + [AT], display the assembled
+// system, then guard against zero-stiffness (unstable) DoFs before partitioning.
+function assembleGlobalLoadVector(AE, AJ, AD, AT) {
+    const mechanicalAC = Matrix.add(AE, AJ);
+    const physicalAC = Matrix.add(mechanicalAC, AT);
+    const AC = Matrix.add(physicalAC, AD);
+    return { AC, physicalAC };
+}
+
 function solveStep4(ctx, step1, step3) {
     const { dofMap, dofInfo, totalDof, isRestrained, prescribedDisp, heavyModel } = step1;
     const { SJ, AE, AJ } = step3;
+    const AT = step3.AT || Matrix.zeros(AE.length, 1);
     const activeCaseLabel = ctx.activeCaseLabel;
 
     let globalLabels = Array.from({ length: totalDof }, (_, i) => i + 1);
     const { Dp, AD } = buildPrescribedMovementActionVector(SJ, prescribedDisp);
-    const physicalAC = Matrix.add(AE, AJ);
-    let AC = Matrix.add(physicalAC, AD);
+    const { AC, physicalAC } = assembleGlobalLoadVector(AE, AJ, AD, AT);
 
     let html = "";
     if (!heavyModel) {
@@ -59,15 +66,16 @@ function solveStep4(ctx, step1, step3) {
         );
     }
     if (!heavyModel) {
-        html += `<p>[AD] = −[SJ][Dp]. Prescribed translations are entered in mm and converted to m before solving; rotations remain in rad. Unit consistency: lengths are m, I is m⁴, and E (entered in GPa) is converted to kN/m² using 1 GPa = 10⁶ kN/m². Therefore [AD] entries are kN at translational DOFs and kN·m at rotational DOFs. The assembled load vector is [AC] = [AE] + [AJ] + [AD].</p>`;
+        html += `<p>[AD] = −[SJ][Dp]. Prescribed translations are entered in mm and converted to m before solving; rotations remain in rad. Lengths are m, I is m⁴, E is kN/m², and α is 1/°C. [AT] contains the equivalent global nodal actions from member temperature effects; its translation entries are kN and rotation entries are kN·m. The assembled load vector is [AC] = [AE] + [AJ] + [AD] + [AT].</p>`;
         html += matrixEqHTML(
             [
                 { m: AE, t: "[AE]", right: globalLabels },
                 { m: AJ, t: "[AJ]", right: globalLabels },
                 { m: AD, t: "[AD]", right: globalLabels },
+                { m: AT, t: "[AT] (Thermal Actions)", right: globalLabels },
                 { m: AC, t: "[AC]", right: globalLabels },
             ],
-            ["+", "+", "="],
+            ["+", "+", "+", "="],
         );
     }
     if (!heavyModel) {
