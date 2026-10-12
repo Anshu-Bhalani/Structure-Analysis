@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "assets/js/main.js"), "utf8");
 const resultsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/results.js"), "utf8");
 const step3ThermalSource = fs.readFileSync(path.join(root, "modules/results/step-3/step-3.js"), "utf8");
+const step4Source = fs.readFileSync(path.join(root, "modules/results/step-4/step-4.js"), "utf8");
 const diagramsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/diagrams/diagrams.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
@@ -31,6 +32,20 @@ const thermalActionSource = section(step3ThermalSource, "function calculatePlane
 const calculatePlaneThermalFixedEndActions = new Function("getElementEInternal",
     thermalActionSource + "\nreturn calculatePlaneThermalFixedEndActions;"
 )((template) => Number(template.E_kN_m2));
+const thermalVectorAssemblySource = section(step3ThermalSource,
+    "function assembleThermalEquivalentNodalActions(", "\n// Return the six local fixed-end actions");
+const assembleThermalEquivalentNodalActions = new Function("Matrix",
+    thermalVectorAssemblySource + "\nreturn assembleThermalEquivalentNodalActions;"
+)({
+    mul: (A, B) => A.map((row) => [row.reduce((sum, value, index) => sum + value * B[index][0], 0)])
+});
+const globalLoadAssemblySource = section(step4Source,
+    "function assembleGlobalLoadVector(", "\nfunction solveStep4(");
+const assembleGlobalLoadVector = new Function("Matrix",
+    globalLoadAssemblySource + "\nreturn assembleGlobalLoadVector;"
+)({
+    add: (A, B) => A.map((row, index) => [row[0] + B[index][0]])
+});
 const validate = new Function("AppConfig", "normalizeLegacySelfWeightModel", "normalizeLegacySupportMovementAssignments",
     validatorSource + "\nreturn validatePersistedInputModel;"
 )({
@@ -406,4 +421,41 @@ test("Grid import rejects plane-member temperature loads", () => {
     const model = baseModel("grid");
     model.loads = [{ id: "TL1", loadCaseId: "LC1", type: "Uniform Temperature Change", elementId: "E1", temperatureDelta: 30 }];
     assert.throws(() => validate(model), /only supported for Beam \/ Truss \/ Frame models/);
+});
+
+
+test("thermal member actions are transformed into a separate global AT vector", () => {
+    const template = { E_kN_m2: 200_000_000, A: 0.02, I: 0.00008, alpha: 12e-6, thermalDepth: 0.3 };
+    const thermalAML = calculatePlaneThermalFixedEndActions(template, {
+        type: "Uniform Temperature Change", temperatureDelta: 30
+    }, false);
+    const AT = Array.from({ length: 6 }, () => [0]);
+    const identity = Array.from({ length: 6 }, (_, row) =>
+        Array.from({ length: 6 }, (_, col) => row === col ? 1 : 0));
+    const thermalAMS = assembleThermalEquivalentNodalActions(AT, identity, thermalAML.map((value) => [value]), [0, 1, 2, 3, 4, 5]);
+
+    assert.equal(thermalAMS[0][0], 1440);
+    assert.equal(thermalAMS[3][0], -1440);
+    assert.deepEqual(AT.map((row) => row[0]), [-1440, 0, 0, 1440, 0, 0]);
+    // [AT] is a dedicated vector; this assembly helper never mutates [AE].
+    assert.match(step3ThermalSource, /return \{ SJ, AE, AJ, AT, html \}/);
+    assert.match(step3ThermalSource, /AE\[idxs\[r\]\]\[0\] -= mechanicalAMS\[r\]\[0\]/);
+});
+
+test("Step 4 assembles AT exactly once into AC with the mechanical and prescribed vectors", () => {
+    const AE = [[1], [2]];
+    const AJ = [[3], [4]];
+    const AD = [[5], [6]];
+    const AT = [[7], [8]];
+    const result = assembleGlobalLoadVector(AE, AJ, AD, AT);
+
+    assert.deepEqual(result.physicalAC, [[11], [14]]);
+    assert.deepEqual(result.AC, [[16], [20]]);
+    assert.match(step4Source, /\[AC\] = \[AE\] \+ \[AJ\] \+ \[AD\] \+ \[AT\]/);
+    assert.match(step4Source, /\{ m: AT, t: "\[AT\] \(Thermal Actions\)"/);
+});
+
+test("Grid Step 3 supplies a zero AT vector and does not change Grid loading", () => {
+    assert.match(step3ThermalSource, /Grid models do not currently accept temperature loads, so \[AT\] is zero/);
+    assert.match(step3ThermalSource, /return \{ SJ, AE, AJ, AT: Matrix\.zeros\(AE\.length, 1\), html \}/);
 });
