@@ -91,10 +91,10 @@ mountModuleHTML(".container", "beforeend", `
                     <div class="restraint-title">Prescribed Movement at This Node (optional)</div>
                     <p style="font-size:12px;color:#64748b;line-height:1.5;margin:0 0 12px;">These values apply only to the selected node. A nonzero value requires the selected support template to restrain that degree of freedom.</p>
                     <div class="grid grid-3">
-                        <div class="field plane-support-movement"><label for="assignmentDispX">Prescribed X displacement (Δx)</label><div class="input-wrap has-unit"><input id="assignmentDispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispX')">e</button></div></div>
-                        <div class="field plane-support-movement"><label for="assignmentDispY">Prescribed Y displacement (Δy)</label><div class="input-wrap has-unit"><input id="assignmentDispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispY')">e</button></div></div>
+                        <div class="field plane-support-movement"><label for="assignmentDispX">Prescribed X displacement (Δx)</label><div class="input-wrap has-unit"><input id="assignmentDispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">mm</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispX')">e</button></div></div>
+                        <div class="field plane-support-movement"><label for="assignmentDispY">Prescribed Y displacement (Δy)</label><div class="input-wrap has-unit"><input id="assignmentDispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">mm</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispY')">e</button></div></div>
                         <div class="field plane-support-movement"><label for="assignmentRotZ">Prescribed rotation (θz)</label><div class="input-wrap has-unit"><input id="assignmentRotZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotZ')">e</button></div></div>
-                        <div class="field grid-support-movement" style="display:none"><label for="assignmentDispZ">Prescribed Grid settlement (ΔZ)</label><div class="input-wrap has-unit"><input id="assignmentDispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispZ')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentDispZ">Prescribed Grid settlement (ΔZ)</label><div class="input-wrap has-unit"><input id="assignmentDispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">mm</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispZ')">e</button></div></div>
                         <div class="field grid-support-movement" style="display:none"><label for="assignmentRotX">Prescribed rotation (θX)</label><div class="input-wrap has-unit"><input id="assignmentRotX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotX')">e</button></div></div>
                         <div class="field grid-support-movement" style="display:none"><label for="assignmentRotY">Prescribed rotation (θY)</label><div class="input-wrap has-unit"><input id="assignmentRotY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotY')">e</button></div></div>
                     </div>
@@ -214,6 +214,16 @@ function renderSupportTemplates() {
     }).join("");
 }
 
+// ---- Prescribed movement unit conversion ----
+// Model/solver translations use metres. The support-assignment UI accepts mm.
+// Rotations remain radians and are never scaled.
+function supportMovementInputToModelUnits(field, value) {
+    return ["dx", "dy", "dz"].includes(field) ? value / 1000 : value;
+}
+function supportMovementModelToInputUnits(field, value) {
+    return ["dx", "dy", "dz"].includes(field) ? value * 1000 : value;
+}
+
 // ---- Support Assignments (apply a support template to a node) ----
 let editingSupportAssignmentId = null;
 
@@ -267,7 +277,7 @@ document.getElementById("supportAssignmentForm").addEventListener("submit", (e) 
         const raw = val(item.inputId);
         const value = raw === "" ? 0 : Number(raw);
         if (!Number.isFinite(value)) return alert(`Prescribed movement ${item.label} must be a finite number.`);
-        prescribedDisplacements[item.field] = value;
+        prescribedDisplacements[item.field] = supportMovementInputToModelUnits(item.field, value);
         if (value !== 0 && !supportTemplateRestrainsMovement(supportTemplate, item.field, gridMode)) {
             return alert(`Cannot prescribe ${item.label} at node "${nodeId}" because support "${supportId}" does not restrain that degree of freedom. Select a support template that restrains it, or set the movement to zero.`);
         }
@@ -298,9 +308,9 @@ function editSupportAssignment(encodedId) {
     document.getElementById("supportNodeSelect").value = assignment.nodeId;
     const template = model.supportTemplates.find((item) => String(item.id) === String(assignment.supportId));
     const movement = getSupportAssignmentPrescribedDisplacements(assignment, template);
-    document.getElementById("assignmentDispX").value = movement.dx ?? 0;
-    document.getElementById("assignmentDispY").value = movement.dy ?? 0;
-    document.getElementById("assignmentDispZ").value = movement.dz ?? 0;
+    document.getElementById("assignmentDispX").value = supportMovementModelToInputUnits("dx", Number(movement.dx) || 0);
+    document.getElementById("assignmentDispY").value = supportMovementModelToInputUnits("dy", Number(movement.dy) || 0);
+    document.getElementById("assignmentDispZ").value = supportMovementModelToInputUnits("dz", Number(movement.dz) || 0);
     document.getElementById("assignmentRotX").value = movement.tx ?? 0;
     document.getElementById("assignmentRotY").value = movement.ty ?? 0;
     document.getElementById("assignmentRotZ").value = movement.tz ?? 0;
@@ -314,8 +324,8 @@ function renderSupportAssignments() {
         const template = model.supportTemplates.find((item) => String(item.id) === String(s.supportId));
         const movement = getSupportAssignmentPrescribedDisplacements(s, template);
         const movementText = gridMode
-            ? `ΔZ=${escapeHtml(movement.dz ?? 0)} m<br>θX=${escapeHtml(movement.tx ?? 0)} rad, θY=${escapeHtml(movement.ty ?? 0)} rad`
-            : `Δx=${escapeHtml(movement.dx ?? 0)} m, Δy=${escapeHtml(movement.dy ?? 0)} m<br>θz=${escapeHtml(movement.tz ?? 0)} rad`;
+            ? `ΔZ=${escapeHtml(supportMovementModelToInputUnits("dz", Number(movement.dz) || 0))} mm<br>θX=${escapeHtml(movement.tx ?? 0)} rad, θY=${escapeHtml(movement.ty ?? 0)} rad`
+            : `Δx=${escapeHtml(supportMovementModelToInputUnits("dx", Number(movement.dx) || 0))} mm, Δy=${escapeHtml(supportMovementModelToInputUnits("dy", Number(movement.dy) || 0))} mm<br>θz=${escapeHtml(movement.tz ?? 0)} rad`;
         return `<tr data-sort-collection="supportAssignments" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td><span class="badge badge-orange">${escapeHtml(s.supportId)}</span></td><td>${escapeHtml(s.nodeId)}</td><td>${movementText}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support assignment ${escapeHtml(s.id)}" title="Edit support assignment ${escapeHtml(s.id)}" onclick="editSupportAssignment('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support assignment ${escapeHtml(s.id)}" title="Delete support assignment ${escapeHtml(s.id)}" onclick="deleteItem('supportAssignments','${encodeInlineArgument(s.id)}','id')">×</button></div></td></tr>`;
     }).join("");
 }

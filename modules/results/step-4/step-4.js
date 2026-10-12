@@ -59,7 +59,7 @@ function solveStep4(ctx, step1, step3) {
         );
     }
     if (!heavyModel) {
-        html += `<p>[AD] = −[SJ][Dp]. [Dp] contains the prescribed support movements; [AD] is the corresponding equivalent nodal-action vector. The assembled load vector is [AC] = [AE] + [AJ] + [AD].</p>`;
+        html += `<p>[AD] = −[SJ][Dp]. Prescribed translations are entered in mm and converted to m before solving; rotations remain in rad. Unit consistency: lengths are m, I is m⁴, and E (entered in GPa) is converted to kN/m² using 1 GPa = 10⁶ kN/m². Therefore [AD] entries are kN at translational DOFs and kN·m at rotational DOFs. The assembled load vector is [AC] = [AE] + [AJ] + [AD].</p>`;
         html += matrixEqHTML(
             [
                 { m: AE, t: "[AE]", right: globalLabels },
