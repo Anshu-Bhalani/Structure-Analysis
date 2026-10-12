@@ -14,35 +14,40 @@ mountModuleHTML(".results-detail-body", "beforeend", `
 `);
 
 /* ---- Logic ---- */
-// Step 6: Calculate displacements exactly as shown in the LPW-3 manual.
-// [AFC] = [SFF]{DF} + [SFR]{DR}
-// Therefore, [DF] = [SFF]^-1 ([AFC] - [SFR][DR]).
-// The full displacement vector [D] is then reconstructed using the free and
-// restrained DoF locations so later reaction/member-action steps can use it.
+// Reconstruct actual absolute nodal displacements from solved increments and
+// prescribed support movements. For the equivalent-action formulation the
+// restrained incremental displacements are zero, and [Dp] is added back here.
+function reconstructActualDisplacementVector(totalDof, prescribedDisp, freeIndices, DF) {
+    const D = Matrix.zeros(totalDof, 1);
+    for (let i = 0; i < totalDof; i++) {
+        const raw = prescribedDisp?.[i];
+        const value = raw === undefined || raw === null || raw === "" ? 0 : Number(raw);
+        D[i][0] = Number.isFinite(value) ? value : 0;
+    }
+    freeIndices.forEach((freeIndex, i) => {
+        D[freeIndex][0] += Number(DF[i]?.[0]) || 0;
+    });
+    return D;
+}
+
+// Step 6: The prescribed-movement effect is already contained in [AD] and [AC].
+// Solve the incremental free displacements as [DF] = [SFF]^-1 [AFC], then
+// restore the imposed movements to recover the actual displacement vector [D].
 function solveStep6(ctx, step1, step5) {
-    const { totalDof, dofMap, heavyModel } = step1;
-    const { numF, numR, SFF, SFR, AFC, DR, freeIndices, restIndices, freeLabels, restLabels } = step5;
+    const { totalDof, dofMap, prescribedDisp, heavyModel } = step1;
+    const { numF, numR, SFF, AFC, DR, freeIndices, restIndices, freeLabels, restLabels } = step5;
 
     let html = `<div class="calc-step"><h4>Step 6: Calculate Displacements</h4>`;
     let DF = Matrix.zeros(numF, 1);
-    let RHS = Matrix.zeros(numF, 1);
+    let RHS = AFC.map((row) => [Number(row[0]) || 0]);
     let SFF_inv = null;
-    let SFR_DR = Matrix.zeros(numF, 1);
+    const SFR_DR = Matrix.zeros(numF, 1); // [DR] is identically zero in the incremental system.
 
     if (numF === 0) {
-        html += `<p>No free degrees of freedom exist. All structural displacements are prescribed restrained values.</p>`;
+        html += `<p>No free degrees of freedom exist. The actual nodal movements are the prescribed values [Dp].</p>`;
     } else {
-        // Form the right-hand side from the manual equation.
-        if (numR > 0) {
-            SFR_DR = Matrix.mul(SFR, DR);
-            RHS = Matrix.sub(AFC, SFR_DR);
-        } else {
-            RHS = AFC.map((row) => [row[0]]);
-        }
-
-        // The manual expresses the solution using [SFF]^-1. Reject a
-        // singular/unstable free stiffness matrix rather than fabricating a
-        // displacement solution.
+        // Because [AD] = -[SJ][Dp] has already been assembled, the incremental
+        // solution uses [AFC] directly; subtracting [SFR][Dp] again would double-count settlement.
         SFF_inv = Matrix.invert(SFF);
         if (!SFF_inv) {
             alert("Step 6 failed: [SFF] is singular. The structure is unstable or the boundary conditions are insufficient.");
@@ -51,41 +56,24 @@ function solveStep6(ctx, step1, step5) {
 
         DF = Matrix.mul(SFF_inv, RHS);
 
-        html += `<p>[DF] = [SFF]⁻¹ ([AFC] - [SFR][DR])</p>`;
+        html += `<p>[DF] = [SFF]⁻¹[AFC]. The equivalent movement actions are already included in [AC]; actual displacements are reconstructed as [D] = [Dp] + [D_increment].</p>`;
         if (!heavyModel) {
-            if (numR > 0) {
-                html += matrixEqHTML(
-                    [
-                        { m: AFC, t: "[AFC]", right: freeLabels },
-                        { m: SFR, t: "[SFR]", top: restLabels, right: freeLabels },
-                        { m: DR, t: "[DR]", right: restLabels },
-                        { m: RHS, t: "[AFC] − [SFR][DR]", right: freeLabels },
-                    ],
-                    ["−", "×", "="]
-                );
-            }
             html += matrixEqHTML(
                 [
                     { m: SFF_inv, t: "[SFF]⁻¹", top: freeLabels, right: freeLabels },
-                    { m: RHS, t: numR > 0 ? "([AFC] − [SFR][DR])" : "[AFC]", right: freeLabels },
+                    { m: RHS, t: "[AFC]", right: freeLabels },
                     { m: DF, t: "[DF]", right: freeLabels },
                 ],
                 ["×", "="]
             );
         } else {
-            html += `<p><strong>[DF]:</strong> ${numF} × 1 displacement vector calculated successfully.</p>`;
+            html += `<p><strong>[DF]:</strong> ${numF} × 1 incremental displacement vector calculated successfully.</p>`;
         }
     }
 
-    // Reconstruct the complete global displacement vector. Restrained DoFs
-    // receive their prescribed values; free DoFs receive the solved [DF].
-    const D = Matrix.zeros(totalDof, 1);
-    freeIndices.forEach((fi, i) => {
-        D[fi][0] = DF[i][0];
-    });
-    restIndices.forEach((ri, i) => {
-        D[ri][0] = DR[i][0];
-    });
+    // [Dp] is nonzero only at prescribed/ restrained DOFs. [DF] is added to
+    // the free DOFs; the resulting [D] is the actual displacement used in [AM].
+    const D = reconstructActualDisplacementVector(totalDof, prescribedDisp, freeIndices, DF);
 
     // Persist solved nodal displacements for the Results displacement diagram.
     model.nodeDisplacements = {};
@@ -108,7 +96,7 @@ function solveStep6(ctx, step1, step5) {
     });
 
     if (numR > 0) {
-        html += `<p><strong>Restrained displacements [DR]:</strong> ${restLabels.join(", ")} are imposed as prescribed support values.</p>`;
+        html += `<p><strong>Restrained displacements:</strong> ${restLabels.join(", ")} use zero incremental [DR]; the actual prescribed movement values are restored from [Dp] in [D].</p>`;
     }
     html += `</div>`;
 

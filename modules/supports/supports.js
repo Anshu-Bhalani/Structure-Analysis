@@ -54,17 +54,6 @@ mountModuleHTML(".container", "beforeend", `
                         <label class="check-item"><input type="checkbox" id="RMz"><span id="supportRMzLabel">RMz</span></label>
                     </div>
                 </div>
-                <div class="restraint-box" style="margin-top:14px;">
-                    <div class="restraint-title">Prescribed Displacements</div>
-                    <div class="grid grid-3">
-                        <div class="field"><label for="dispX" id="supportDispXLabel">Δx</label><div class="input-wrap has-unit"><input id="dispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('dispX')">e</button></div></div>
-                        <div class="field"><label for="dispY" id="supportDispYLabel">Δy</label><div class="input-wrap has-unit"><input id="dispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('dispY')">e</button></div></div>
-                        <div class="field"><label for="dispZ" id="supportDispZLabel">Δz</label><div class="input-wrap has-unit"><input id="dispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('dispZ')">e</button></div></div>
-                        <div class="field"><label for="rotX" id="supportRotXLabel">θx</label><div class="input-wrap has-unit"><input id="rotX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('rotX')">e</button></div></div>
-                        <div class="field"><label for="rotY" id="supportRotYLabel">θy</label><div class="input-wrap has-unit"><input id="rotY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('rotY')">e</button></div></div>
-                        <div class="field"><label for="rotZ" id="supportRotZLabel">θz</label><div class="input-wrap has-unit"><input id="rotZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('rotZ')">e</button></div></div>
-                    </div>
-                </div>
                 <div class="form-footer">
                     <button type="button" class="btn btn-secondary" onclick="resetSupportForm()">Reset</button>
                     <button id="supportTemplateSubmitBtn" type="submit" class="btn btn-primary">Create Custom Support</button>
@@ -80,7 +69,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Support ID</th><th>Description</th><th>Restraints</th><th>Displacement</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Support ID</th><th>Description</th><th>Restraints</th><th>Actions</th></tr></thead>
                     <tbody id="supportTemplateTable"></tbody>
                 </table>
             </div>
@@ -98,6 +87,18 @@ mountModuleHTML(".container", "beforeend", `
                     <div class="field"><label for="supportTemplateSelect">Support Template</label><select id="supportTemplateSelect"><option value="">Select support</option></select></div>
                     <div class="field"><label for="supportNodeSelect">Node ID</label><select id="supportNodeSelect"><option value="">Select node</option></select></div>
                 </div>
+                <div class="restraint-box" style="margin-top:14px;">
+                    <div class="restraint-title">Prescribed Movement at This Node (optional)</div>
+                    <p style="font-size:12px;color:#64748b;line-height:1.5;margin:0 0 12px;">These values apply only to the selected node. A nonzero value requires the selected support template to restrain that degree of freedom.</p>
+                    <div class="grid grid-3">
+                        <div class="field plane-support-movement"><label for="assignmentDispX">Prescribed X displacement (Δx)</label><div class="input-wrap has-unit"><input id="assignmentDispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispX')">e</button></div></div>
+                        <div class="field plane-support-movement"><label for="assignmentDispY">Prescribed Y displacement (Δy)</label><div class="input-wrap has-unit"><input id="assignmentDispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispY')">e</button></div></div>
+                        <div class="field plane-support-movement"><label for="assignmentRotZ">Prescribed rotation (θz)</label><div class="input-wrap has-unit"><input id="assignmentRotZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotZ')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentDispZ">Prescribed Grid settlement (ΔZ)</label><div class="input-wrap has-unit"><input id="assignmentDispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispZ')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentRotX">Prescribed rotation (θX)</label><div class="input-wrap has-unit"><input id="assignmentRotX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotX')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentRotY">Prescribed rotation (θY)</label><div class="input-wrap has-unit"><input id="assignmentRotY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotY')">e</button></div></div>
+                    </div>
+                </div>
                 <div class="form-footer">
                     <button id="supportAssignmentSubmitBtn" type="submit" class="btn btn-primary">Assign Support</button>
                 </div>
@@ -112,7 +113,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Assignment ID</th><th>Support</th><th>Node</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Assignment ID</th><th>Support</th><th>Node</th><th>Prescribed Movement</th><th>Actions</th></tr></thead>
                     <tbody id="supportAssignmentTable"></tbody>
                 </table>
             </div>
@@ -145,14 +146,23 @@ document.getElementById("supportTemplateForm").addEventListener("submit", (e) =>
     const id = val("supportId");
     if (!id) return alert("Support ID is required.");
     if (hasId(model.supportTemplates, id, editingSupportTemplateId)) return alert("Support ID already exists.");
-    const numericSupportValues = [[num("dispX"), "Δx"], [num("dispY"), "Δy"], [num("dispZ"), "Δz"], [num("rotX"), "θx"], [num("rotY"), "θy"], [num("rotZ"), "θz"]];
-    for (const [value, label] of numericSupportValues) { const error = requireFinite(value, label); if (error) return alert(error); }
     const data = {
         id, description: val("supportDescription"), type: "custom", builtIn: false,
         restraints: { RFx: document.getElementById("RFx").checked, RFy: document.getElementById("RFy").checked, RFz: document.getElementById("RFz").checked, RMx: document.getElementById("RMx").checked, RMy: document.getElementById("RMy").checked, RMz: document.getElementById("RMz").checked },
-        displacement: { dx: num("dispX"), dy: num("dispY"), dz: num("dispZ"), tx: num("rotX"), ty: num("rotY"), tz: num("rotZ") },
+        displacement: { ...ZERO_SUPPORT_MOVEMENTS },
     };
     if (editingSupportTemplateId !== null) {
+        const gridMode = isGridAnalysisMode();
+        const activeFields = gridMode ? ["tx", "ty", "dz"] : ["dx", "dy", "tz"];
+        for (const assignment of model.supportAssignments.filter((item) => String(item.supportId) === String(editingSupportTemplateId))) {
+            const movements = getSupportAssignmentPrescribedDisplacements(assignment, model.supportTemplates.find((item) => String(item.id) === String(editingSupportTemplateId)));
+            const incompatible = activeFields.find((field) =>
+                Number(movements[field]) !== 0 && !supportTemplateRestrainsMovement(data, field, gridMode)
+            );
+            if (incompatible) {
+                return alert(`Cannot remove the restraint for ${incompatible}: support assignment "${assignment.id}" has a nonzero prescribed movement on that degree of freedom. Set that assignment's movement to zero first.`);
+            }
+        }
         const updated = updateSupportTemplate(editingSupportTemplateId, data);
         if (!updated) { resetSupportForm(); return; }
     } else {
@@ -175,12 +185,6 @@ function editSupportTemplate(encodedId) {
     document.getElementById("supportId").value = support.id;
     document.getElementById("supportDescription").value = support.description || "";
     ["RFx","RFy","RFz","RMx","RMy","RMz"].forEach((key) => { document.getElementById(key).checked = !!support.restraints?.[key]; });
-    document.getElementById("dispX").value = support.displacement?.dx ?? 0;
-    document.getElementById("dispY").value = support.displacement?.dy ?? 0;
-    document.getElementById("dispZ").value = support.displacement?.dz ?? 0;
-    document.getElementById("rotX").value = support.displacement?.tx ?? 0;
-    document.getElementById("rotY").value = support.displacement?.ty ?? 0;
-    document.getElementById("rotZ").value = support.displacement?.tz ?? 0;
     document.getElementById("supportTemplateSubmitBtn").textContent = "Update Custom Support";
 }
 function selectBuiltInSupport(id) {
@@ -192,7 +196,7 @@ function selectBuiltInSupport(id) {
 }
 function renderSupportTemplates() {
     const tbody = document.getElementById("supportTemplateTable");
-    if (!model.supportTemplates.length) return showEmpty("supportTemplateTable", 5);
+    if (!model.supportTemplates.length) return showEmpty("supportTemplateTable", 4);
     const gridMode = typeof isGridAnalysisMode === "function" && isGridAnalysisMode();
     const gridRestraintLabels = { RFx: "θX", RFy: "θY", RMz: "ΔZ" };
     const allRestraintLabels = { RFx: "RFx", RFy: "RFy", RFz: "RFz", RMx: "RMx", RMy: "RMy", RMz: "RMz" };
@@ -204,13 +208,9 @@ function renderSupportTemplates() {
         const labels = gridMode ? gridRestraintLabels : allRestraintLabels;
         const r = effective.map((key) => labels[key]).join(", ") || "None";
         const rText = `${escapeHtml(r)}${ignored.length ? `<br><span class="muted">Ignored in Grid: ${escapeHtml(ignored.map((key) => allRestraintLabels[key] || key).join(", "))}</span>` : ""}`;
-        const d = s.displacement || {};
-        const disp = gridMode
-            ? `ΔZ=${escapeHtml(d.dz ?? 0)}<br>θX=${escapeHtml(d.tx ?? 0)} rad, θY=${escapeHtml(d.ty ?? 0)} rad${(Number(d.dx) || Number(d.dy) || Number(d.tz)) ? `<br><span class="muted">Unused in Grid: Δx=${escapeHtml(d.dx ?? 0)}, Δy=${escapeHtml(d.dy ?? 0)}, θz=${escapeHtml(d.tz ?? 0)}</span>` : ""}`
-            : `Δx=${escapeHtml(d.dx ?? 0)}, Δy=${escapeHtml(d.dy ?? 0)}, Δz=${escapeHtml(d.dz ?? 0)}<br>θx=${escapeHtml(d.tx ?? 0)} rad, θy=${escapeHtml(d.ty ?? 0)} rad, θz=${escapeHtml(d.tz ?? 0)} rad`;
         const kind = s.builtIn ? `<span class="badge badge-blue">Built-in</span>` : `<span class="badge badge-gray">Custom</span>`;
         const action = s.builtIn ? `<span class="badge badge-gray">Protected</span>` : `<div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support template ${escapeHtml(s.id)}" title="Edit support template ${escapeHtml(s.id)}" onclick="editSupportTemplate('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support template ${escapeHtml(s.id)}" title="Delete support template ${escapeHtml(s.id)}" onclick="deleteItem('supportTemplates','${encodeInlineArgument(s.id)}','id')">×</button></div>`;
-        return `<tr data-sort-collection="supportTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td>${escapeHtml(s.description)}<br>${kind}</td><td>${rText}</td><td>${disp}</td><td>${action}</td></tr>`;
+        return `<tr data-sort-collection="supportTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td>${escapeHtml(s.description)}<br>${kind}</td><td>${rText}</td><td>${action}</td></tr>`;
     }).join("");
 }
 
@@ -248,7 +248,31 @@ document.getElementById("supportAssignmentForm").addEventListener("submit", (e) 
     if (otherAssignmentOnNode) {
         return alert(`Node "${nodeId}" already has support assignment "${otherAssignmentOnNode.id}". Create one custom support template with all required restraints instead of assigning multiple supports to the same node.`);
     }
-    const data = { id, supportId, nodeId };
+    const supportTemplate = model.supportTemplates.find((item) => String(item.id) === String(supportId)) ||
+        AppConfig.builtInSupportTemplates.find((item) => String(item.id) === String(supportId));
+    const gridMode = isGridAnalysisMode();
+    const prescribedDisplacements = { ...ZERO_SUPPORT_MOVEMENTS };
+    const activeMovementInputs = gridMode
+        ? [
+            { inputId: "assignmentDispZ", field: "dz", label: "ΔZ" },
+            { inputId: "assignmentRotX", field: "tx", label: "θX" },
+            { inputId: "assignmentRotY", field: "ty", label: "θY" },
+        ]
+        : [
+            { inputId: "assignmentDispX", field: "dx", label: "Δx" },
+            { inputId: "assignmentDispY", field: "dy", label: "Δy" },
+            { inputId: "assignmentRotZ", field: "tz", label: "θz" },
+        ];
+    for (const item of activeMovementInputs) {
+        const raw = val(item.inputId);
+        const value = raw === "" ? 0 : Number(raw);
+        if (!Number.isFinite(value)) return alert(`Prescribed movement ${item.label} must be a finite number.`);
+        prescribedDisplacements[item.field] = value;
+        if (value !== 0 && !supportTemplateRestrainsMovement(supportTemplate, item.field, gridMode)) {
+            return alert(`Cannot prescribe ${item.label} at node "${nodeId}" because support "${supportId}" does not restrain that degree of freedom. Select a support template that restrains it, or set the movement to zero.`);
+        }
+    }
+    const data = { id, supportId, nodeId, prescribedDisplacements };
     if (editingSupportAssignmentId !== null) {
         const updated = updateSupportAssignment(editingSupportAssignmentId, data);
         if (!updated) { resetSupportAssignmentForm(); return; }
@@ -272,12 +296,26 @@ function editSupportAssignment(encodedId) {
     document.getElementById("supportAssignmentId").value = assignment.id;
     document.getElementById("supportTemplateSelect").value = assignment.supportId;
     document.getElementById("supportNodeSelect").value = assignment.nodeId;
+    const template = model.supportTemplates.find((item) => String(item.id) === String(assignment.supportId));
+    const movement = getSupportAssignmentPrescribedDisplacements(assignment, template);
+    document.getElementById("assignmentDispX").value = movement.dx ?? 0;
+    document.getElementById("assignmentDispY").value = movement.dy ?? 0;
+    document.getElementById("assignmentDispZ").value = movement.dz ?? 0;
+    document.getElementById("assignmentRotX").value = movement.tx ?? 0;
+    document.getElementById("assignmentRotY").value = movement.ty ?? 0;
+    document.getElementById("assignmentRotZ").value = movement.tz ?? 0;
     document.getElementById("supportAssignmentSubmitBtn").textContent = "Update Support";
 }
 function renderSupportAssignments() {
     const tbody = document.getElementById("supportAssignmentTable");
-    if (!model.supportAssignments.length) return showEmpty("supportAssignmentTable", 4);
-    tbody.innerHTML = model.supportAssignments.map((s) =>
-        `<tr data-sort-collection="supportAssignments" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td><span class="badge badge-orange">${escapeHtml(s.supportId)}</span></td><td>${escapeHtml(s.nodeId)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support assignment ${escapeHtml(s.id)}" title="Edit support assignment ${escapeHtml(s.id)}" onclick="editSupportAssignment('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support assignment ${escapeHtml(s.id)}" title="Delete support assignment ${escapeHtml(s.id)}" onclick="deleteItem('supportAssignments','${encodeInlineArgument(s.id)}','id')">×</button></div></td></tr>`
-    ).join("");
+    if (!model.supportAssignments.length) return showEmpty("supportAssignmentTable", 5);
+    const gridMode = isGridAnalysisMode();
+    tbody.innerHTML = model.supportAssignments.map((s) => {
+        const template = model.supportTemplates.find((item) => String(item.id) === String(s.supportId));
+        const movement = getSupportAssignmentPrescribedDisplacements(s, template);
+        const movementText = gridMode
+            ? `ΔZ=${escapeHtml(movement.dz ?? 0)} m<br>θX=${escapeHtml(movement.tx ?? 0)} rad, θY=${escapeHtml(movement.ty ?? 0)} rad`
+            : `Δx=${escapeHtml(movement.dx ?? 0)} m, Δy=${escapeHtml(movement.dy ?? 0)} m<br>θz=${escapeHtml(movement.tz ?? 0)} rad`;
+        return `<tr data-sort-collection="supportAssignments" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td><span class="badge badge-orange">${escapeHtml(s.supportId)}</span></td><td>${escapeHtml(s.nodeId)}</td><td>${movementText}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support assignment ${escapeHtml(s.id)}" title="Edit support assignment ${escapeHtml(s.id)}" onclick="editSupportAssignment('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support assignment ${escapeHtml(s.id)}" title="Delete support assignment ${escapeHtml(s.id)}" onclick="deleteItem('supportAssignments','${encodeInlineArgument(s.id)}','id')">×</button></div></td></tr>`;
+    }).join("");
 }

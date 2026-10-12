@@ -204,19 +204,20 @@ function solveStep1(ctx) {
         let t = model.supportTemplates.find((s) => s.id === sa.supportId);
         if (d && t) {
             const relevant = getNodeStructuralDofRelevance(sa.nodeId);
+            const movement = getSupportAssignmentPrescribedDisplacements(sa, t);
             // A = 0 -> pure beam/flexural behavior: axial RFx is irrelevant.
             // I = 0 -> pure truss behavior: rotational RMz is irrelevant.
             if (t.restraints.RFx && relevant.ux && d.x !== null) {
                 isRestrained[d.x] = true;
-                prescribedDisp[d.x] = t.displacement.dx || 0;
+                prescribedDisp[d.x] = Number(movement.dx) || 0;
             }
             if (t.restraints.RFy && relevant.uy && d.y !== null) {
                 isRestrained[d.y] = true;
-                prescribedDisp[d.y] = t.displacement.dy || 0;
+                prescribedDisp[d.y] = Number(movement.dy) || 0;
             }
             if (t.restraints.RMz && relevant.rz && d.z !== null) {
                 isRestrained[d.z] = true;
-                prescribedDisp[d.z] = t.displacement.tz || 0;
+                prescribedDisp[d.z] = Number(movement.tz) || 0;
             }
         }
     });
