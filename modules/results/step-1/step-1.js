@@ -33,12 +33,10 @@ function buildStructuralDofNumbering() {
     let dofCounter = 0;
     const dofConfig = getGlobalDofNumberingConfig();
 
-    // The Excel numbering is based on the member properties connected to each
-    // node. The Neglect X / Neglect Moment M switches are optional controls:
-    //   - Neglect X ON  -> omit X only where all connected members have A=0.
-    //   - Neglect M ON  -> omit M only where all connected members have I=0.
-    //   - Shared nodes keep the union of all required DOFs.
-    //   - With a switch OFF, that DOF is numbered normally at every node.
+    // The Neglect X / Neglect Moment M switches are optional controls.
+    // New Beam templates use their actual area when X is included; when Ignore
+    // X is checked, beam-only joints do not get axial DOFs. Truss and Frame
+    // retain their existing axial behavior. Shared nodes use the union of DOFs.
     // The numbering is compressed, so an omitted DOF never reserves a number.
     model.nodes.forEach((node, index) => {
         const relevance = getNodeStructuralDofRelevance(node.id);
@@ -69,8 +67,10 @@ function getElementLocalDofMask(element) {
     if (isGridAnalysisMode()) return [true, true, true, true, true, true];
     const type = getElementStructuralType(element);
     if (type === "beam") {
-        // Beam: Fy, M at both ends. X/axial is not a member DOF.
-        return [false, true, true, false, true, true];
+        // Beam axial stiffness uses the section area only when Ignore X is OFF.
+        const template = model.elementTemplates.find((item) => item.id === element.templateId);
+        const axialActive = Number(template?.A) > 0 && !getGlobalDofNumberingConfig().skipAxial;
+        return [axialActive, true, true, axialActive, true, true];
     }
     if (type === "truss") {
         // Truss: X, Y at both ends. M/rotation is released.
@@ -239,7 +239,7 @@ function solveStep1(ctx) {
     let html = `<div class="calc-step">
         <h4>Step 1: Divide the structure into number of members and assign member number, joint number and degrees of freedom (DoF) number</h4>
         <p>Structure is divided into ${model.elements.length} members and ${model.nodes.length} joints. DoF numbering is compressed only for the neglect options selected above.</p>
-        <p><strong>Numbering rule:</strong> Beam → Y,M &nbsp;|&nbsp; Truss → X,Y &nbsp;|&nbsp; Frame → X,Y,M. If Neglect X or Neglect Moment M is OFF, that DOF remains numbered. If ON, only nodes where the connected element A/I properties make that DOF unnecessary omit it. Shared nodes receive the union of all required DOFs.</p>
+        <p><strong>Numbering rule:</strong> Beam → Y,M (and X when area is positive and Ignore X is OFF) &nbsp;|&nbsp; Truss → X,Y &nbsp;|&nbsp; Frame → X,Y,M. Ignore X also suppresses axial thermal actions. Shared nodes receive the union of the applicable member DOFs.</p>
         <div class="canvas-container" style="background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom:15px; width: 100%; max-width: 100%; overflow-x: auto; height: 400px;">
             ${step1SVG}
         </div>

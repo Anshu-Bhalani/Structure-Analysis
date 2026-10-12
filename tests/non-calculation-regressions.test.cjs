@@ -8,6 +8,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "assets/js/main.js"), "utf8");
 const resultsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/results.js"), "utf8");
+const step3ThermalSource = fs.readFileSync(path.join(root, "modules/results/step-3/step-3.js"), "utf8");
 const diagramsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/diagrams/diagrams.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
@@ -26,6 +27,10 @@ const builtInSupportTemplates = [
 ];
 
 const validatorSource = section(mainSource, "function validatePersistedInputModel(source) {", "\nfunction resetAllEditForms()");
+const thermalActionSource = section(step3ThermalSource, "function calculatePlaneThermalFixedEndActions(", "\nfunction renderStep3(");
+const calculatePlaneThermalFixedEndActions = new Function("getElementEInternal",
+    thermalActionSource + "\nreturn calculatePlaneThermalFixedEndActions;"
+)((template) => Number(template.E_kN_m2));
 const validate = new Function("AppConfig", "normalizeLegacySelfWeightModel", "normalizeLegacySupportMovementAssignments",
     validatorSource + "\nreturn validatePersistedInputModel;"
 )({
@@ -330,13 +335,75 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
     assert.ok(openSource.indexOf("syncDiagramModeLabels()") < openSource.indexOf('getElementById("fsModeSelect").value'));
 
     const versionByFile = {
-        "assets/js/main.js": "v=20261012-element-E-kn-m2",
-        "modules/elements/elements.js": "v=20261012-element-E-kn-m2",
+        "assets/js/main.js": "v=20261012-temperature-loads-v1",
+        "modules/elements/elements.js": "v=20261012-temperature-loads-v1",
+        "modules/load/load.js": "v=20261012-temperature-loads-v1",
+        "modules/results/step-1/step-1.js": "v=20261012-temperature-loads-v1",
         "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
+        "modules/results/step-3/step-3.js": "v=20261012-temperature-loads-v1",
         "modules/results/diagrams/diagrams.js": "v=20261012-element-E-kn-m2",
         "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
     for (const [file, version] of Object.entries(versionByFile)) {
         assert.ok(indexSource.includes(file + "?" + version), "missing cache-busted script reference for " + file);
     }
+});
+
+
+test("uniform thermal action uses EA alpha delta-T and Ignore X suppresses it", () => {
+    const template = { E_kN_m2: 200_000_000, A: 0.02, I: 0.00008, alpha: 12e-6, thermalDepth: 0.3 };
+    const load = { type: "Uniform Temperature Change", temperatureDelta: 30 };
+    const actions = calculatePlaneThermalFixedEndActions(template, load, false);
+    assert.equal(actions[0], 1440);
+    assert.equal(actions[3], -1440);
+    assert.deepEqual(actions.slice(1, 3), [0, 0]);
+    assert.deepEqual(calculatePlaneThermalFixedEndActions(template, load, true), [0, 0, 0, 0, 0, 0]);
+});
+
+test("temperature gradient creates equal-and-opposite fixed-end moments", () => {
+    const template = { E_kN_m2: 200_000_000, A: 0.02, I: 0.00008, alpha: 12e-6, thermalDepth: 0.3 };
+    const actions = calculatePlaneThermalFixedEndActions(template, {
+        type: "Temperature Gradient", temperatureT1: 0, temperatureT2: 30
+    }, true);
+    assert.ok(Math.abs(actions[2] + 19.2) < 1e-10);
+    assert.ok(Math.abs(actions[5] - 19.2) < 1e-10);
+    assert.deepEqual([actions[0], actions[1], actions[3], actions[4]], [0, 0, 0, 0]);
+});
+
+test("temperature gradient with equal face temperatures produces no thermal moment", () => {
+    const template = { E_kN_m2: 200_000_000, I: 0.00008, alpha: 12e-6, thermalDepth: 0.3 };
+    const actions = calculatePlaneThermalFixedEndActions(template, {
+        type: "Temperature Gradient", temperatureT1: 20, temperatureT2: 20
+    }, false);
+    assert.equal(Math.abs(actions[2]), 0);
+    assert.equal(Math.abs(actions[5]), 0);
+});
+
+test("import accepts a valid uniform thermal load on an explicit Beam", () => {
+    const model = baseModel("plane");
+    model.elementTemplates[0] = { id: "T1", memberType: "beam", I: 1, E_kN_m2: 200_000_000, A: 0.02, alpha: 12e-6, thermalDepth: 0.3 };
+    model.loads = [{ id: "TL1", loadCaseId: "LC1", type: "Uniform Temperature Change", elementId: "E1", temperatureDelta: 30 }];
+    assert.equal(validate(model), true);
+});
+
+test("import rejects thermal loads without a positive expansion coefficient", () => {
+    const model = baseModel("plane");
+    model.elementTemplates[0] = { id: "T1", memberType: "frame", I: 1, E_kN_m2: 200_000_000, A: 0.02, alpha: 0, thermalDepth: 0.3 };
+    model.loads = [{ id: "TL1", loadCaseId: "LC1", type: "Uniform Temperature Change", elementId: "E1", temperatureDelta: 30 }];
+    assert.throws(() => validate(model), /alpha must be greater than 0/);
+});
+
+test("import accepts a valid temperature gradient and validates section depth", () => {
+    const model = baseModel("plane");
+    model.elementTemplates[0] = { id: "T1", memberType: "frame", I: 0.00008, E_kN_m2: 200_000_000, A: 0.02, alpha: 12e-6, thermalDepth: 0.3 };
+    model.loads = [{ id: "TL1", loadCaseId: "LC1", type: "Temperature Gradient", elementId: "E1", temperatureT1: 30, temperatureT2: 10 }];
+    assert.equal(validate(model), true);
+    model.elementTemplates[0].thermalDepth = 0;
+    assert.throws(() => validate(model), /section depth d must be greater than 0/);
+});
+
+test("Grid import rejects plane-member temperature loads", () => {
+    const model = baseModel("grid");
+    model.loads = [{ id: "TL1", loadCaseId: "LC1", type: "Uniform Temperature Change", elementId: "E1", temperatureDelta: 30 }];
+    assert.throws(() => validate(model), /only supported for Beam \/ Truss \/ Frame models/);
 });

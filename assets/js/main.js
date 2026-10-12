@@ -311,7 +311,7 @@ function syncAnalysisModeUI() {
     if (modeNote) {
         modeNote.textContent = isGridAnalysisMode()
             ? "Grid geometry lies in the XY plane; node Z coordinates are unused. Grid DOFs: θX, θY and ΔZ. Grid templates require positive E, G, I and J. Loads use Fz; torsion uses Mx (+ right/− left) and My (+ up/− down)."
-            : "Plane analysis classifies each element as Beam, Truss or Frame from its A and I values.";
+            : "Plane analysis uses the selected Beam, Truss or Frame type. Thermal loads are defined per member; uniform temperature changes create axial thermal actions and temperature gradients create bending actions.";
     }
     syncDiagramModeLabels();
 
@@ -389,6 +389,7 @@ function syncAnalysisModeUI() {
     if (typeof syncLoadInputModeUI === "function") syncLoadInputModeUI();
     if (typeof syncMomentInputModeUI === "function") syncMomentInputModeUI();
     if (typeof syncMomentCaseInputModeUI === "function") syncMomentCaseInputModeUI();
+    if (typeof syncElementTemplateTypeUI === "function") syncElementTemplateTypeUI();
 }
 
 function setAnalysisMode(value) {
@@ -643,6 +644,10 @@ function getElementLength(elementId) {
 function getElementStructuralType(element) {
     const tmpl = element ? model.elementTemplates.find((t) => t.id === element.templateId) : null;
     if (!tmpl) return null;
+    const explicitType = String(tmpl.memberType || "").toLowerCase();
+    if (["beam", "truss", "frame"].includes(explicitType)) return explicitType;
+    // Backward compatibility for existing models that classified members
+    // implicitly from A and I before the explicit member-type field existed.
     const A = Number(tmpl.A);
     const I = Number(tmpl.I);
     if (!Number.isFinite(A) || !Number.isFinite(I)) return null;
@@ -700,10 +705,14 @@ function getNodeStructuralDofRelevance(nodeId) {
     }
     let axial = false;
     let bending = false;
+    const skipAxialForBeam = getGlobalDofNumberingConfig().skipAxial;
     connected.forEach((el) => {
         const tmpl = model.elementTemplates.find((t) => t.id === el.templateId);
         if (!tmpl) return;
-        axial = axial || Number(tmpl.A) > 0;
+        const memberType = getElementStructuralType(el);
+        // New Beam templates have an area but their axial DOFs can be excluded
+        // by Ignore X. Truss and Frame axial stiffness retain their prior behavior.
+        axial = axial || (Number(tmpl.A) > 0 && !(memberType === "beam" && skipAxialForBeam));
         bending = bending || Number(tmpl.I) > 0;
     });
     return { ux: axial, uy: connected.length > 0, rz: bending };
@@ -1058,12 +1067,12 @@ function getPersistedInputModel() {
     // copying those objects directly would make exported/saved files enormous.
     const INPUT_FIELD_KEYS = {
         nodes: ["id", "x", "y", "z"],
-        elementTemplates: ["id", "I", "E_kN_m2", "G_GPa", "J", "A"],
+        elementTemplates: ["id", "memberType", "I", "E_kN_m2", "G_GPa", "J", "A", "alpha", "thermalDepth"],
         elements: ["id", "templateId", "startNode", "endNode"],
         supportTemplates: ["id", "description", "type", "builtIn", "restraints", "displacement"],
         supportAssignments: ["id", "supportId", "nodeId", "prescribedDisplacements"],
         loadCases: ["id", "type", "description", "memberSelfWeights"],
-        loads: ["id", "loadCaseId", "type", "nodeId", "elementId", "axisSystem", "angle", "distance", "distanceEnd", "Fx", "Fy", "Fz", "FxEnd", "FyEnd", "FzEnd"],
+        loads: ["id", "loadCaseId", "type", "nodeId", "elementId", "axisSystem", "angle", "distance", "distanceEnd", "Fx", "Fy", "Fz", "FxEnd", "FyEnd", "FzEnd", "temperatureDelta", "temperatureT1", "temperatureT2"],
         momentCases: ["id", "type", "description"],
         moments: ["id", "momentCaseId", "type", "nodeId", "elementId", "distance", "Mx", "My", "Mz"],
     };
@@ -1215,6 +1224,23 @@ function validatePersistedInputModel(source) {
             if (Number(template.A) === 0 && Number(template.I) === 0) {
                 throw new Error(`Element template '${template.id}' cannot have both A and I equal to zero.`);
             }
+            const memberType = template.memberType === undefined || template.memberType === null || template.memberType === ""
+                ? null : String(template.memberType).toLowerCase();
+            if (memberType !== null) {
+                if (!["beam", "truss", "frame"].includes(memberType)) {
+                    throw new Error(`Element template '${template.id}' has unsupported member type '${template.memberType}'.`);
+                }
+                requireFiniteField(template, "A", `Element template '${template.id}' A`, { exclusiveMin: 0 });
+                if (memberType === "truss") {
+                    if (Number(template.I) !== 0) {
+                        throw new Error(`Truss template '${template.id}' must have I = 0.`);
+                    }
+                } else {
+                    requireFiniteField(template, "I", `Element template '${template.id}' I`, { exclusiveMin: 0 });
+                }
+            }
+            requireFiniteField(template, "alpha", `Element template '${template.id}' thermal expansion coefficient alpha`, { min: 0, optional: true });
+            requireFiniteField(template, "thermalDepth", `Element template '${template.id}' thermal section depth`, { min: 0, optional: true });
         }
     });
 
@@ -1318,9 +1344,27 @@ function validatePersistedInputModel(source) {
             throw new Error(`Nodal load '${load.id}' cannot use the Local axis system.`);
         }
         requireReference(load.loadCaseId, loadCaseIds, `load-case reference on load '${load.id}'`);
+        const temperatureLoad = ["Uniform Temperature Change", "Temperature Gradient"].includes(load.type);
         // "Element Load" is a legacy alias still handled by both solver paths.
-        if (!["Nodal Load", "Element Point Load", "Element Load", "Element UDL"].includes(load.type)) {
+        if (!["Nodal Load", "Element Point Load", "Element Load", "Element UDL", "Uniform Temperature Change", "Temperature Gradient"].includes(load.type)) {
             throw new Error(`Load '${load.id}' has unsupported type '${load.type}'.`);
+        }
+        if (temperatureLoad) {
+            if (gridModel) throw new Error(`Temperature load '${load.id}' is only supported for Beam / Truss / Frame models.`);
+            requireReference(load.elementId, elementIds, `element reference on temperature load '${load.id}'`);
+            const targetElement = collections.elements.find((item) => item.id === load.elementId);
+            const targetTemplate = collections.elementTemplates.find((item) => item.id === targetElement.templateId);
+            requireFiniteField(targetTemplate, "alpha", `Temperature load '${load.id}' element template alpha`, { exclusiveMin: 0 });
+            if (load.type === "Uniform Temperature Change") {
+                requireFiniteField(load, "temperatureDelta", `Temperature load '${load.id}' temperature change ΔT`);
+                requireFiniteField(targetTemplate, "A", `Temperature load '${load.id}' element area A`, { exclusiveMin: 0 });
+            } else {
+                requireFiniteField(load, "temperatureT1", `Temperature gradient load '${load.id}' T1`);
+                requireFiniteField(load, "temperatureT2", `Temperature gradient load '${load.id}' T2`);
+                requireFiniteField(targetTemplate, "I", `Temperature gradient load '${load.id}' element inertia I`, { exclusiveMin: 0 });
+                requireFiniteField(targetTemplate, "thermalDepth", `Temperature gradient load '${load.id}' section depth d`, { exclusiveMin: 0 });
+            }
+            return;
         }
         if (load.type === "Nodal Load") {
             requireReference(load.nodeId, nodeIds, `node reference on load '${load.id}'`);

@@ -17,7 +17,7 @@ mountModuleHTML(".container", "beforeend", `
                 <div class="grid grid-3">
                     <div class="field"><label for="loadId">Load ID</label><input id="loadId" placeholder="L1" value="L1"></div>
                     <div class="field"><label for="loadCaseSelect">Load Case ID</label><select id="loadCaseSelect"><option value="">Select load case</option></select></div>
-                    <div class="field"><label for="loadType">Load Type</label><select id="loadType" onchange="toggleLoadTarget()"><option value="Nodal Load">Nodal Load</option><option value="Element Point Load">Element Point Load</option><option value="Element UDL">Element UDL</option></select></div>
+                    <div class="field"><label for="loadType">Load Type</label><select id="loadType" onchange="toggleLoadTarget()"><option value="Nodal Load">Nodal Load</option><option value="Element Point Load">Element Point Load</option><option value="Element UDL">Element UDL</option><option class="plane-only-load-type" value="Uniform Temperature Change">Uniform Temperature Change</option><option class="plane-only-load-type" value="Temperature Gradient">Temperature Gradient</option></select></div>
                 </div>
                 <div class="restraint-box" id="loadAxisBox" style="margin-top:15px;">
                     <div class="restraint-title">Load Axis & Direction</div>
@@ -54,6 +54,19 @@ mountModuleHTML(".container", "beforeend", `
                         <div id="loadFzEndField" class="field"><label for="loadFzEnd" id="lblLoadFzEnd">End Fz (Ignore)</label><div class="input-wrap has-unit"><input id="loadFzEnd" type="text" inputmode="decimal" placeholder="0" value=""><span class="input-unit">kN/m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('loadFzEnd')">e</button></div></div>
                     </div>
                 </div>
+                <div class="restraint-box" id="loadTemperatureFields" style="display:none; margin-top:15px;">
+                    <div class="restraint-title">Temperature Input</div>
+                    <div id="temperatureDeltaField" class="field">
+                        <label for="loadTemperatureDelta">Uniform Temperature Change (ΔT)</label>
+                        <div class="input-wrap has-unit"><input id="loadTemperatureDelta" type="text" inputmode="decimal" placeholder="e.g. 30" value="0"><span class="input-unit">°C</span></div>
+                        <p style="color:#64748b; margin:8px 0 0; font-size:0.9em;">Free expansion: ΔL = LαΔT. If restrained, the axial thermal force magnitude is EAαΔT.</p>
+                    </div>
+                    <div id="temperatureGradientFields" class="grid grid-2" style="display:none;">
+                        <div class="field"><label for="loadTemperatureT1">Face 1 Temperature Change (T1)</label><div class="input-wrap has-unit"><input id="loadTemperatureT1" type="text" inputmode="decimal" placeholder="e.g. 30" value="0"><span class="input-unit">°C</span></div></div>
+                        <div class="field"><label for="loadTemperatureT2">Face 2 Temperature Change (T2)</label><div class="input-wrap has-unit"><input id="loadTemperatureT2" type="text" inputmode="decimal" placeholder="e.g. 10" value="0"><span class="input-unit">°C</span></div></div>
+                    </div>
+                    <p style="color:#64748b; margin:10px 0 0; font-size:0.9em;">The selected element template supplies α. Temperature gradients also use its section depth d. Face temperatures are changes from the reference temperature.</p>
+                </div>
                 <div class="form-footer">
                     <button type="button" class="btn btn-secondary" onclick="resetLoadForm()">Reset</button>
                     <button id="loadSubmitBtn" type="submit" class="btn btn-primary">Create Load</button>
@@ -80,18 +93,21 @@ mountModuleHTML(".container", "beforeend", `
 // ---- Loads ----
 function toggleLoadTarget() {
     const type = val("loadType");
-    document.getElementById("nodalLoadTarget").style.display =
-        type === "Nodal Load" ? "block" : "none";
-    document.getElementById("elementLoadTarget").style.display =
-        type === "Element Point Load" || type === "Element UDL" ? "block" : "none";
-    document.getElementById("loadDistanceField").style.display =
-        type === "Element Point Load" || type === "Element UDL" ? "flex" : "none";
-    document.getElementById("loadEndDistanceField").style.display =
-        type === "Element UDL" ? "flex" : "none";
-    document.getElementById("loadEndMagnitudes").style.display =
-        type === "Element UDL" ? "grid" : "none";
-    document.getElementById("lblLoadDist").innerText =
-        type === "Element UDL" ? "Start Distance (a)" : "Distance from Start Node (a)";
+    const isThermal = type === "Uniform Temperature Change" || type === "Temperature Gradient";
+    const isElementPoint = type === "Element Point Load";
+    const isUDL = type === "Element UDL";
+    document.getElementById("nodalLoadTarget").style.display = type === "Nodal Load" ? "block" : "none";
+    document.getElementById("elementLoadTarget").style.display = isElementPoint || isUDL || isThermal ? "block" : "none";
+    document.getElementById("loadDistanceField").style.display = isElementPoint || isUDL ? "flex" : "none";
+    document.getElementById("loadEndDistanceField").style.display = isUDL ? "flex" : "none";
+    document.getElementById("loadEndMagnitudes").style.display = isUDL ? "grid" : "none";
+    document.getElementById("lblLoadDist").innerText = isUDL ? "Start Distance (a)" : "Distance from Start Node (a)";
+    const temperatureFields = document.getElementById("loadTemperatureFields");
+    if (temperatureFields) temperatureFields.style.display = isThermal ? "block" : "none";
+    const deltaField = document.getElementById("temperatureDeltaField");
+    if (deltaField) deltaField.style.display = type === "Uniform Temperature Change" ? "block" : "none";
+    const gradientFields = document.getElementById("temperatureGradientFields");
+    if (gradientFields) gradientFields.style.display = type === "Temperature Gradient" ? "grid" : "none";
     syncLoadInputModeUI();
     toggleLoadAngle();
     if (typeof syncAnalysisModeUI === "function") syncAnalysisModeUI();
@@ -109,13 +125,20 @@ function syncLoadInputModeUI() {
         const el = document.getElementById(id);
         if (el) el.style.display = value;
     };
-    setDisplay("loadAxisBox", gridMode ? "none" : "block");
-    setDisplay("loadFxField", gridMode ? "none" : "block");
-    setDisplay("loadFyField", gridMode ? "none" : "block");
-    setDisplay("loadFxEndField", gridMode ? "none" : "block");
-    setDisplay("loadFyEndField", gridMode ? "none" : "block");
-    setDisplay("loadFzField", "block");
-    setDisplay("loadFzEndField", "block");
+    const type = typeSelect ? typeSelect.value : "Nodal Load";
+    const isThermal = type === "Uniform Temperature Change" || type === "Temperature Gradient";
+    typeSelect?.querySelectorAll(".plane-only-load-type").forEach((option) => {
+        option.hidden = gridMode;
+        option.disabled = gridMode;
+    });
+    setDisplay("loadAxisBox", gridMode || isThermal ? "none" : "block");
+    setDisplay("loadForceComponents", isThermal ? "none" : "grid");
+    setDisplay("loadFxField", gridMode || isThermal ? "none" : "block");
+    setDisplay("loadFyField", gridMode || isThermal ? "none" : "block");
+    setDisplay("loadFxEndField", gridMode || isThermal ? "none" : "block");
+    setDisplay("loadFyEndField", gridMode || isThermal ? "none" : "block");
+    setDisplay("loadFzField", isThermal ? "none" : "block");
+    setDisplay("loadFzEndField", isThermal ? "none" : "block");
     setDisplay("gridLoadSignNote", gridMode ? "block" : "none");
 
     const forceGrid = document.getElementById("loadForceComponents");
@@ -125,7 +148,6 @@ function syncLoadInputModeUI() {
 
     const title = document.getElementById("loadComponentsTitle");
     if (title) title.textContent = gridMode ? "Grid Load Magnitude (Fz)" : "Force Components";
-    const type = typeSelect ? typeSelect.value : "Nodal Load";
     const isUDL = type === "Element UDL";
     const fx = document.getElementById("lblLoadFx");
     const fy = document.getElementById("lblLoadFy");
@@ -191,6 +213,9 @@ function createLoad(data) {
 function updateLoad(existingId, data) {
     const load = model.loads.find((l) => l.id === existingId);
     if (!load) return false;
+    // Remove any prior thermal-input fields when a load is edited to a
+    // different type, so switching load types cannot preserve stale values.
+    ["temperatureDelta", "temperatureT1", "temperatureT2"].forEach((key) => delete load[key]);
     Object.assign(load, data);
     markAnalysisInvalidated();
     return true;
@@ -205,8 +230,50 @@ document.getElementById("loadForm").addEventListener("submit", (e) => {
     const caseError = requireReference(model.loadCases, loadCaseId, "Load Case");
     if (caseError) return alert(caseError);
     const type = val("loadType");
-    if (!["Nodal Load", "Element Point Load", "Element UDL"].includes(type)) return alert("Invalid Load Type.");
     const gridMode = typeof isGridAnalysisMode === "function" && isGridAnalysisMode();
+    const temperatureLoad = type === "Uniform Temperature Change" || type === "Temperature Gradient";
+    if (temperatureLoad) {
+        if (gridMode) return alert("Temperature loads are supported only in Beam / Truss / Frame models.");
+        const elementId = val("loadElement");
+        let error = requireReference(model.elements, elementId, "Load Element");
+        if (error) return alert(error);
+        const element = model.elements.find((item) => item.id === elementId);
+        const template = model.elementTemplates.find((item) => item.id === element.templateId);
+        const alpha = Number(template?.alpha);
+        if (!Number.isFinite(alpha) || alpha <= 0) return alert("Enter a positive thermal expansion coefficient α in the element template first.");
+        let data;
+        if (type === "Uniform Temperature Change") {
+            const rawDelta = val("loadTemperatureDelta");
+            if (rawDelta === "") return alert("Uniform temperature change ΔT is required.");
+            const temperatureDelta = num("loadTemperatureDelta");
+            error = requireFinite(temperatureDelta, "Uniform Temperature Change ΔT");
+            if (error) return alert(error);
+            if (!Number.isFinite(Number(template?.A)) || Number(template.A) <= 0) {
+                return alert("Uniform axial thermal effects require a positive cross-sectional area A on the element template.");
+            }
+            data = { id, loadCaseId, type, elementId, temperatureDelta, axisSystem: "Global", angle: 0 };
+        } else {
+            const rawT1 = val("loadTemperatureT1"), rawT2 = val("loadTemperatureT2");
+            if (rawT1 === "" || rawT2 === "") return alert("Both face temperature changes T1 and T2 are required.");
+            const temperatureT1 = num("loadTemperatureT1"), temperatureT2 = num("loadTemperatureT2");
+            error = requireFinite(temperatureT1, "Face 1 Temperature Change T1") || requireFinite(temperatureT2, "Face 2 Temperature Change T2");
+            if (error) return alert(error);
+            if (!(Number(template?.I) > 0)) return alert("Temperature gradients require a member with I > 0; a truss has I = 0 in this solver.");
+            if (!(Number(template?.thermalDepth) > 0)) return alert("Enter a positive section depth d in the element template before applying a temperature gradient.");
+            data = { id, loadCaseId, type, elementId, temperatureT1, temperatureT2, axisSystem: "Global", angle: 0 };
+        }
+        if (editingLoadId !== null) {
+            const updated = updateLoad(editingLoadId, data);
+            if (!updated) { resetLoadForm(); return; }
+        } else {
+            createLoad(data);
+        }
+        resetLoadForm();
+        document.getElementById("loadId").value = getNextId(id);
+        refreshAll();
+        return;
+    }
+    if (!["Nodal Load", "Element Point Load", "Element UDL"].includes(type)) return alert("Invalid Load Type.");
     const axisSystem = gridMode ? "Global" : val("loadAxisSystem");
     // An angle is meaningful only for an Angled load. Do not turn invalid
     // text into zero through `|| 0`; validate the raw parsed value whenever
@@ -287,6 +354,9 @@ function editLoad(encodedId) {
     document.getElementById("loadFxEnd").value = load.FxEnd ?? "";
     document.getElementById("loadFyEnd").value = load.FyEnd ?? "";
     document.getElementById("loadFzEnd").value = load.FzEnd ?? "";
+    document.getElementById("loadTemperatureDelta").value = load.temperatureDelta ?? 0;
+    document.getElementById("loadTemperatureT1").value = load.temperatureT1 ?? 0;
+    document.getElementById("loadTemperatureT2").value = load.temperatureT2 ?? 0;
     document.getElementById("loadSubmitBtn").textContent = "Update Load";
     toggleLoadAngle();
 }
@@ -311,6 +381,12 @@ function renderLoads() {
                 ? `${escapeHtml(l.Fz)} to ${l.FzEnd !== undefined && l.FzEnd !== "" ? escapeHtml(l.FzEnd) : escapeHtml(l.Fz)}`
                 : escapeHtml(l.Fz);
             return `<tr data-sort-collection="loads" data-sort-id="${escapeHtml(encodeInlineArgument(l.id))}"><td>${sortHandle(l.id)}${escapeHtml(l.id)}</td><td>${escapeHtml(l.loadCaseId)}</td><td><span class="badge badge-blue">${escapeHtml(typeLabel)}</span></td><td>${target}</td><td>${dist}</td><td>${magnitude}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit load ${escapeHtml(l.id)}" title="Edit load ${escapeHtml(l.id)}" onclick="editLoad('${encodeInlineArgument(l.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete load ${escapeHtml(l.id)}" title="Delete load ${escapeHtml(l.id)}" onclick="deleteItem('loads','${encodeInlineArgument(l.id)}','id')">×</button></div></td></tr>`;
+        }
+        if (l.type === "Uniform Temperature Change" || l.type === "Temperature Gradient") {
+            const thermalText = l.type === "Uniform Temperature Change"
+                ? `ΔT = ${escapeHtml(l.temperatureDelta)} °C`
+                : `T1 = ${escapeHtml(l.temperatureT1)} °C; T2 = ${escapeHtml(l.temperatureT2)} °C`;
+            return `<tr data-sort-collection="loads" data-sort-id="${escapeHtml(encodeInlineArgument(l.id))}"><td>${sortHandle(l.id)}${escapeHtml(l.id)}</td><td>${escapeHtml(l.loadCaseId)}</td><td><span class="badge badge-blue">${escapeHtml(l.type)}</span></td><td>—</td><td>${target}</td><td>—</td><td colspan="3">${thermalText}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit load ${escapeHtml(l.id)}" title="Edit load ${escapeHtml(l.id)}" onclick="editLoad('${encodeInlineArgument(l.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete load ${escapeHtml(l.id)}" title="Delete load ${escapeHtml(l.id)}" onclick="deleteItem('loads','${encodeInlineArgument(l.id)}','id')">×</button></div></td></tr>`;
         }
         const fxStr = l.type === "Element UDL" ? `${escapeHtml(l.Fx)} to ${l.FxEnd !== undefined && l.FxEnd !== "" ? escapeHtml(l.FxEnd) : escapeHtml(l.Fx)}` : escapeHtml(l.Fx);
         const fyStr = l.type === "Element UDL" ? `${escapeHtml(l.Fy)} to ${l.FyEnd !== undefined && l.FyEnd !== "" ? escapeHtml(l.FyEnd) : escapeHtml(l.Fy)}` : escapeHtml(l.Fy);
