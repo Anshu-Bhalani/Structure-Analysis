@@ -14,26 +14,25 @@ mountModuleHTML(".results-detail-body", "beforeend", `
 `);
 
 /* ---- Logic ---- */
-// Step 7: Recover support reactions [AR] = -[ARC] + [SRF][DF] + [SRR][DR]
-// and member end actions [AM]_i = [AML]_i + [SM]_i[RT]_i[DS]_i.
+// Step 7: Recover support reactions from the incremental system.
+// Since prescribed-movement actions [AD] are included in [AC] and restrained
+// incremental displacements [DR] are zero, [AR] = -[ARC] + [SRF][DF].
+// Member end actions always use actual displacements restored in [D].
 function solveStep7(ctx, step1, step4, step5, step6) {
     const { dofMap, heavyModel } = step1;
     const { AC } = step4;
-    const { numF, numR, SRF, SRR, ARC, DR, restIndices, freeLabels, restLabels } = step5;
+    const { numF, numR, SRF, ARC, restIndices, freeLabels, restLabels } = step5;
     const { DF, D } = step6;
 
     let SRF_DF = Matrix.zeros(numR, 1);
     if (numF > 0 && numR > 0) SRF_DF = Matrix.mul(SRF, DF);
-
-    let SRR_DR = Matrix.zeros(numR, 1);
-    if (numR > 0) SRR_DR = Matrix.mul(SRR, DR);
 
     let negARC = Matrix.zeros(numR, 1);
     for (let i = 0; i < numR; i++) negARC[i][0] = -ARC[i][0];
 
     let AR = Matrix.zeros(numR, 1);
     for (let i = 0; i < numR; i++) {
-        AR[i][0] = -ARC[i][0] + SRF_DF[i][0] + SRR_DR[i][0];
+        AR[i][0] = -ARC[i][0] + SRF_DF[i][0];
     }
 
     let html = "";
@@ -45,7 +44,9 @@ function solveStep7(ctx, step1, step4, step5, step6) {
     }
     if (numR > 0) {
         if (!heavyModel) {
-            html += `<p>[AR] = -[ARC] + [SRF][DF] + [SRR][DR]</p>`;
+            html += numF > 0
+            ? `<p>[AR] = -[ARC] + [SRF][DF], because incremental [DR] = 0.</p>`
+            : `<p>[AR] = -[ARC], because no free degrees of freedom exist.</p>`;
         }
 
         if (numF > 0) {
@@ -55,11 +56,9 @@ function solveStep7(ctx, step1, step4, step5, step6) {
                         { m: negARC, t: "-[ARC]", right: restLabels },
                         { m: SRF, t: "[SRF]", top: freeLabels, right: restLabels },
                         { m: DF, t: "[DF]", right: freeLabels },
-                        { m: SRR, t: "[SRR]", top: restLabels, right: restLabels },
-                        { m: DR, t: "[DR]", right: restLabels },
                         { m: AR, t: "[AR]", right: restLabels },
                     ],
-                    ["+", "×", "+", "×", "="],
+                    ["+", "×", "="],
                 );
             }
         } else {
@@ -67,11 +66,9 @@ function solveStep7(ctx, step1, step4, step5, step6) {
                 html += matrixEqHTML(
                     [
                         { m: negARC, t: "-[ARC]", right: restLabels },
-                        { m: SRR, t: "[SRR]", top: restLabels, right: restLabels },
-                        { m: DR, t: "[DR]", right: restLabels },
                         { m: AR, t: "[AR]", right: restLabels },
                     ],
-                    ["+", "×", "="],
+                    ["="],
                 );
             }
         }
