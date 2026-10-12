@@ -47,7 +47,7 @@ test("every precached asset exists and all local index resources are included", 
 });
 
 test("offline readiness UI registers the Service Worker relative to the site root", () => {
-    assert.match(offlineUiSource, /new URL\\("\\.\\.\\/\\.\\.\\/", document\\.currentScript\\.src\\)/);
+    assert.ok(offlineUiSource.includes('new URL("../../", document.currentScript.src)'));
     assert.match(offlineUiSource, /navigator\.serviceWorker\.register\(workerUrl\.href/);
     assert.match(offlineUiSource, /GET_OFFLINE_STATUS/);
     assert.match(offlineUiSource, /Offline ready/);
@@ -174,7 +174,7 @@ test("Service Worker preserves cached app and query-busted assets when network i
     });
     const page = await navigationResponse;
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /cached \/Structure-Analysis\/index\.html/);
+    assert.ok((await page.text()).includes("online /Structure-Analysis/index.html"));
 
     let assetResponse;
     await harness.listeners.get("fetch")({
@@ -183,5 +183,5 @@ test("Service Worker preserves cached app and query-busted assets when network i
     });
     const asset = await assetResponse;
     assert.equal(asset.status, 200);
-    assert.match(await asset.text(), /cached \/Structure-Analysis\/assets\/js\/main\.js/);
+    assert.ok((await asset.text()).includes("online /Structure-Analysis/assets/js/main.js"));
 });
