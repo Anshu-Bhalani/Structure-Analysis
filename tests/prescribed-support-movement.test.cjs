@@ -30,7 +30,7 @@ function near(actual, expected, tolerance = 1e-10) {
 const movementHelpersSource = section(
     mainSource,
     "const SUPPORT_MOVEMENT_FIELDS =",
-    "\n// ==========================================================================\\n// 6. PERSISTENCE"
+    "\n// ==========================================================================\n// 6. PERSISTENCE"
 );
 const movementHelpers = new Function(
     "AppConfig",
