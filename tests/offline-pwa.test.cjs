@@ -143,12 +143,34 @@ test("Service Worker precaches all declared app assets before activating", async
     await installPromise;
 
     const cacheNames = await harness.caches.keys();
-    assert.deepEqual(cacheNames, ["structure-analysis-offline-v1"]);
+    assert.deepEqual(cacheNames, ["structure-analysis-offline-v2"]);
     const cache = await harness.caches.open(cacheNames[0]);
     const keys = await cache.keys();
     assert.equal(keys.length, coreAssets.length);
     assert.equal(requests.length, coreAssets.length);
     assert.equal(harness.skipWaitingCalled, true);
+});
+
+test("a failed new precache leaves the active app cache unchanged", async () => {
+    const failingPath = "/Structure-Analysis/modules/elements/elements.js";
+    const harness = createWorkerHarness(async (request) => {
+        const url = new URL(request.url);
+        if (url.pathname === failingPath) throw new Error("simulated precache failure");
+        return new Response("new app asset " + url.pathname, { status: 200 });
+    });
+
+    const previousCache = await harness.caches.open("structure-analysis-offline-v1");
+    const previousIndex = new URL("index.html", "https://example.test/Structure-Analysis/");
+    await previousCache.put(new Request(previousIndex.href), new Response("previous app shell", { status: 200 }));
+
+    let installPromise;
+    harness.listeners.get("install")({ waitUntil(promise) { installPromise = promise; } });
+    await assert.rejects(installPromise);
+
+    const preservedResponse = await previousCache.match(new Request(previousIndex.href));
+    assert.ok(preservedResponse, "the previous app shell should remain cached");
+    assert.equal(await preservedResponse.text(), "previous app shell");
+    assert.equal(harness.skipWaitingCalled, false, "a failed precache must not activate the new worker");
 });
 
 test("Service Worker preserves cached app and query-busted assets when network is unavailable", async () => {
