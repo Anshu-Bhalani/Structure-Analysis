@@ -102,20 +102,21 @@ test("support translations are entered in mm but kept internally in metres; rota
     }
     near(movementUnitHelpers.supportMovementInputToModelUnits("tx", 0.01), 0.01);
     near(movementUnitHelpers.supportMovementModelToInputUnits("tz", -0.02), -0.02);
-    assert.match(supportsSource, /assignmentDispX[^\\n]*input-unit">mm/);
-    assert.match(supportsSource, /assignmentDispY[^\\n]*input-unit">mm/);
-    assert.match(supportsSource, /assignmentDispZ[^\\n]*input-unit">mm/);
-    assert.match(step4Source, /AD entries are kN at translational DOFs and kN·m at rotational DOFs/);
+    assert.ok(supportsSource.includes('id="assignmentDispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">mm</span>'));
+    assert.ok(supportsSource.includes('id="assignmentDispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">mm</span>'));
+    assert.ok(supportsSource.includes('id="assignmentDispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">mm</span>'));
+    assert.ok(step4Source.includes("[AD] entries are kN at translational DOFs and kN·m at rotational DOFs"));
 });
 
 test("E and I stay dimensionally consistent with kN and metres in the stiffness engine", () => {
     // 1 GPa = 10^6 kN/m²; I is already entered/stored in m⁴ and is not scaled.
     near(getElementEInternal({ E_GPa: 30 }), 30_000_000);
-    assert.match(elementSource, /I \\(m⁴\\)/);
-    assert.match(elementSource, /E \\(GPa\\)/);
-    assert.match(step3Source, /let E = getElementEInternal\\(tmpl\\)/);
-    assert.match(step3Source, /I = Number\\(tmpl\\.I\\)/);
-    assert.match(mainSource, /function getElementEInternal\\(template\\)[\\s\\S]*?Number\\(template\\.E_GPa\\) \\* 1e6/);
+    assert.ok(elementSource.includes("I (m⁴)"));
+    assert.ok(elementSource.includes("E (GPa)"));
+    assert.ok(step3Source.includes("let E = getElementEInternal(tmpl)"));
+    assert.ok(step3Source.includes("I = Number(tmpl.I)"));
+    assert.ok(mainSource.includes("function getElementEInternal(template)"));
+    assert.ok(mainSource.includes("Number(template.E_GPa) * 1e6"));
 });
 
 test("AD from a prescribed settlement produces 12EIδ/L³ shears and 6EIδ/L² end actions", () => {
