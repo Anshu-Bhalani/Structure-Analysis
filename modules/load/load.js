@@ -358,7 +358,9 @@ function editLoad(encodedId) {
     document.getElementById("loadTemperatureT1").value = load.temperatureT1 ?? 0;
     document.getElementById("loadTemperatureT2").value = load.temperatureT2 ?? 0;
     document.getElementById("loadSubmitBtn").textContent = "Update Load";
-    toggleLoadAngle();
+    // Re-display the controls associated with the restored type. This is
+    // required for thermal edits so the T1/T2 fields are visible again.
+    toggleLoadTarget();
 }
 function renderLoads() {
     const tbody = document.getElementById("loadTable");
