@@ -152,6 +152,17 @@ document.getElementById("supportTemplateForm").addEventListener("submit", (e) =>
         displacement: { ...ZERO_SUPPORT_MOVEMENTS },
     };
     if (editingSupportTemplateId !== null) {
+        const gridMode = isGridAnalysisMode();
+        const activeFields = gridMode ? ["tx", "ty", "dz"] : ["dx", "dy", "tz"];
+        for (const assignment of model.supportAssignments.filter((item) => String(item.supportId) === String(editingSupportTemplateId))) {
+            const movements = getSupportAssignmentPrescribedDisplacements(assignment, model.supportTemplates.find((item) => String(item.id) === String(editingSupportTemplateId)));
+            const incompatible = activeFields.find((field) =>
+                Number(movements[field]) !== 0 && !supportTemplateRestrainsMovement(data, field, gridMode)
+            );
+            if (incompatible) {
+                return alert(`Cannot remove the restraint for ${incompatible}: support assignment "${assignment.id}" has a nonzero prescribed movement on that degree of freedom. Set that assignment's movement to zero first.`);
+            }
+        }
         const updated = updateSupportTemplate(editingSupportTemplateId, data);
         if (!updated) { resetSupportForm(); return; }
     } else {
@@ -237,7 +248,31 @@ document.getElementById("supportAssignmentForm").addEventListener("submit", (e) 
     if (otherAssignmentOnNode) {
         return alert(`Node "${nodeId}" already has support assignment "${otherAssignmentOnNode.id}". Create one custom support template with all required restraints instead of assigning multiple supports to the same node.`);
     }
-    const data = { id, supportId, nodeId };
+    const supportTemplate = model.supportTemplates.find((item) => String(item.id) === String(supportId)) ||
+        AppConfig.builtInSupportTemplates.find((item) => String(item.id) === String(supportId));
+    const gridMode = isGridAnalysisMode();
+    const prescribedDisplacements = { ...ZERO_SUPPORT_MOVEMENTS };
+    const activeMovementInputs = gridMode
+        ? [
+            { inputId: "assignmentDispZ", field: "dz", label: "ΔZ" },
+            { inputId: "assignmentRotX", field: "tx", label: "θX" },
+            { inputId: "assignmentRotY", field: "ty", label: "θY" },
+        ]
+        : [
+            { inputId: "assignmentDispX", field: "dx", label: "Δx" },
+            { inputId: "assignmentDispY", field: "dy", label: "Δy" },
+            { inputId: "assignmentRotZ", field: "tz", label: "θz" },
+        ];
+    for (const item of activeMovementInputs) {
+        const raw = val(item.inputId);
+        const value = raw === "" ? 0 : Number(raw);
+        if (!Number.isFinite(value)) return alert(`Prescribed movement ${item.label} must be a finite number.`);
+        prescribedDisplacements[item.field] = value;
+        if (value !== 0 && !supportTemplateRestrainsMovement(supportTemplate, item.field, gridMode)) {
+            return alert(`Cannot prescribe ${item.label} at node "${nodeId}" because support "${supportId}" does not restrain that degree of freedom. Select a support template that restrains it, or set the movement to zero.`);
+        }
+    }
+    const data = { id, supportId, nodeId, prescribedDisplacements };
     if (editingSupportAssignmentId !== null) {
         const updated = updateSupportAssignment(editingSupportAssignmentId, data);
         if (!updated) { resetSupportAssignmentForm(); return; }
@@ -261,12 +296,26 @@ function editSupportAssignment(encodedId) {
     document.getElementById("supportAssignmentId").value = assignment.id;
     document.getElementById("supportTemplateSelect").value = assignment.supportId;
     document.getElementById("supportNodeSelect").value = assignment.nodeId;
+    const template = model.supportTemplates.find((item) => String(item.id) === String(assignment.supportId));
+    const movement = getSupportAssignmentPrescribedDisplacements(assignment, template);
+    document.getElementById("assignmentDispX").value = movement.dx ?? 0;
+    document.getElementById("assignmentDispY").value = movement.dy ?? 0;
+    document.getElementById("assignmentDispZ").value = movement.dz ?? 0;
+    document.getElementById("assignmentRotX").value = movement.tx ?? 0;
+    document.getElementById("assignmentRotY").value = movement.ty ?? 0;
+    document.getElementById("assignmentRotZ").value = movement.tz ?? 0;
     document.getElementById("supportAssignmentSubmitBtn").textContent = "Update Support";
 }
 function renderSupportAssignments() {
     const tbody = document.getElementById("supportAssignmentTable");
-    if (!model.supportAssignments.length) return showEmpty("supportAssignmentTable", 4);
-    tbody.innerHTML = model.supportAssignments.map((s) =>
-        `<tr data-sort-collection="supportAssignments" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td><span class="badge badge-orange">${escapeHtml(s.supportId)}</span></td><td>${escapeHtml(s.nodeId)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support assignment ${escapeHtml(s.id)}" title="Edit support assignment ${escapeHtml(s.id)}" onclick="editSupportAssignment('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support assignment ${escapeHtml(s.id)}" title="Delete support assignment ${escapeHtml(s.id)}" onclick="deleteItem('supportAssignments','${encodeInlineArgument(s.id)}','id')">×</button></div></td></tr>`
-    ).join("");
+    if (!model.supportAssignments.length) return showEmpty("supportAssignmentTable", 5);
+    const gridMode = isGridAnalysisMode();
+    tbody.innerHTML = model.supportAssignments.map((s) => {
+        const template = model.supportTemplates.find((item) => String(item.id) === String(s.supportId));
+        const movement = getSupportAssignmentPrescribedDisplacements(s, template);
+        const movementText = gridMode
+            ? `ΔZ=${escapeHtml(movement.dz ?? 0)} m<br>θX=${escapeHtml(movement.tx ?? 0)} rad, θY=${escapeHtml(movement.ty ?? 0)} rad`
+            : `Δx=${escapeHtml(movement.dx ?? 0)} m, Δy=${escapeHtml(movement.dy ?? 0)} m<br>θz=${escapeHtml(movement.tz ?? 0)} rad`;
+        return `<tr data-sort-collection="supportAssignments" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td><span class="badge badge-orange">${escapeHtml(s.supportId)}</span></td><td>${escapeHtml(s.nodeId)}</td><td>${movementText}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support assignment ${escapeHtml(s.id)}" title="Edit support assignment ${escapeHtml(s.id)}" onclick="editSupportAssignment('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support assignment ${escapeHtml(s.id)}" title="Delete support assignment ${escapeHtml(s.id)}" onclick="deleteItem('supportAssignments','${encodeInlineArgument(s.id)}','id')">×</button></div></td></tr>`;
+    }).join("");
 }
