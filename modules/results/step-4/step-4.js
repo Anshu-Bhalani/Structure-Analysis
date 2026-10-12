@@ -14,16 +14,39 @@ mountModuleHTML(".results-detail-body", "beforeend", `
 `);
 
 /* ---- Logic ---- */
-// Step 4: Assemble the global load vector [AC] = [AE] + [AJ], display the
-// assembled system, then guard against zero-stiffness (unstable) DoFs before
-// any partitioning is attempted.
+// Prescribed movements are converted to equivalent nodal actions using the
+// already-assembled global stiffness matrix. [AD] = -[SJ][Dp], where [Dp]
+// contains imposed support movements at restrained DOFs and zero elsewhere.
+// The solution then uses zero incremental movement at those supports; the
+// actual displacement vector is reconstructed as D = Dp + D_increment.
+function buildPrescribedMovementActionVector(SJ, prescribedDisp) {
+    const totalDof = SJ.length;
+    const Dp = Matrix.zeros(totalDof, 1);
+    for (let i = 0; i < totalDof; i++) {
+        const raw = prescribedDisp?.[i];
+        const value = raw === undefined || raw === null || raw === "" ? 0 : Number(raw);
+        Dp[i][0] = Number.isFinite(value) ? value : 0;
+    }
+
+    const stiffnessTimesMovement = Matrix.mul(SJ, Dp);
+    const AD = Matrix.zeros(totalDof, 1);
+    for (let i = 0; i < totalDof; i++) {
+        AD[i][0] = -(Number(stiffnessTimesMovement[i]?.[0]) || 0);
+    }
+    return { Dp, AD };
+}
+
+// Step 4: Assemble [AC] = [AE] + [AJ] + [AD], display the assembled system,
+// then guard against zero-stiffness (unstable) DoFs before partitioning.
 function solveStep4(ctx, step1, step3) {
-    const { dofMap, dofInfo, totalDof, isRestrained, heavyModel } = step1;
+    const { dofMap, dofInfo, totalDof, isRestrained, prescribedDisp, heavyModel } = step1;
     const { SJ, AE, AJ } = step3;
     const activeCaseLabel = ctx.activeCaseLabel;
 
     let globalLabels = Array.from({ length: totalDof }, (_, i) => i + 1);
-    let AC = Matrix.add(AE, AJ);
+    const { Dp, AD } = buildPrescribedMovementActionVector(SJ, prescribedDisp);
+    const physicalAC = Matrix.add(AE, AJ);
+    let AC = Matrix.add(physicalAC, AD);
 
     let html = "";
     if (!heavyModel) {
@@ -36,13 +59,15 @@ function solveStep4(ctx, step1, step3) {
         );
     }
     if (!heavyModel) {
+        html += `<p>[AD] = −[SJ][Dp]. [Dp] contains the prescribed support movements; [AD] is the corresponding equivalent nodal-action vector. The assembled load vector is [AC] = [AE] + [AJ] + [AD].</p>`;
         html += matrixEqHTML(
             [
                 { m: AE, t: "[AE]", right: globalLabels },
                 { m: AJ, t: "[AJ]", right: globalLabels },
+                { m: AD, t: "[AD]", right: globalLabels },
                 { m: AC, t: "[AC]", right: globalLabels },
             ],
-            ["+", "="],
+            ["+", "+", "="],
         );
     }
     if (!heavyModel) {
@@ -90,7 +115,7 @@ function solveStep4(ctx, step1, step3) {
         return null;
     }
 
-    return { AC, globalLabels, structurallyRelevantDof, html };
+    return { AC, physicalAC, AD, Dp, globalLabels, structurallyRelevantDof, html };
 }
 
 function renderStep4(step4) {
