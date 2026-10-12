@@ -330,9 +330,11 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
     assert.ok(openSource.indexOf("syncDiagramModeLabels()") < openSource.indexOf('getElementById("fsModeSelect").value'));
 
     const versionByFile = {
-        "assets/js/main.js": "v=20261012-prescribed-support-AD",
-        "modules/results/results.js": "v=20261011-grid-my-torsion-refresh",
-        "modules/results/diagrams/diagrams.js": "v=20261011-grid-my-torsion-refresh"
+        "assets/js/main.js": "v=20261012-element-E-kn-m2",
+        "modules/elements/elements.js": "v=20261012-element-E-kn-m2",
+        "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
+        "modules/results/diagrams/diagrams.js": "v=20261012-element-E-kn-m2",
+        "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
     for (const [file, version] of Object.entries(versionByFile)) {
         assert.ok(indexSource.includes(file + "?" + version), "missing cache-busted script reference for " + file);
