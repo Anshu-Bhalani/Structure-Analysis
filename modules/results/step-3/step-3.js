@@ -81,12 +81,16 @@ function solveGridStep3(ctx, step1) {
         if (dof.y !== null) AJ[dof.y][0] += Number(moment.My) || 0;
     });
     html += `</div>`;
-    return { SJ, AE, AJ, html };
+    // Grid models do not currently accept temperature loads, so [AT] is zero.
+    return { SJ, AE, AJ, AT: Matrix.zeros(AE.length, 1), html };
 }
 
 function solveStep3(ctx, step1) {
     if (isGridAnalysisMode()) return solveGridStep3(ctx, step1);
     const { dofMap, SJ, AE, AJ, heavyModel } = step1;
+    // [AT] is kept separate from [AE] so Step 4 can assemble thermal actions
+    // explicitly as [AC] = [AE] + [AJ] + [AD] + [AT].
+    const AT = Matrix.zeros(AE.length, 1);
     let html = "";
 
     if (!heavyModel) {
@@ -291,17 +295,6 @@ function solveStep3(ctx, step1) {
             }
         });
 
-        // Temperature inputs are equivalent member fixed-end actions, so they
-        // pass through the existing AML -> global assembly -> reactions/results
-        // pathway alongside mechanical element loads.
-        const ignoreAxialThermal = getGlobalDofNumberingConfig().skipAxial;
-        model.loads.forEach((thermalLoad) => {
-            if (!isActiveLoadCase(thermalLoad) || thermalLoad.elementId !== el.id) return;
-            if (thermalLoad.type !== "Uniform Temperature Change" && thermalLoad.type !== "Temperature Gradient") return;
-            const thermalActions = calculatePlaneThermalFixedEndActions(tmpl, thermalLoad, ignoreAxialThermal);
-            thermalActions.forEach((value, index) => { el.AML[index][0] += value; });
-        });
-
         model.moments.forEach((m) => {
             if (!isActiveMomentCase(m)) return;
             // UI convention: +Mz is anticlockwise, matching the
@@ -321,14 +314,32 @@ function solveStep3(ctx, step1) {
             }
         });
 
-        // Lab manual: [AMS] = [RT]^T [AML]
-        // AML is now guaranteed to have been assembled completely in local axes.
-        let AMS = Matrix.mul(el.RTT, el.AML);
-        el.AMS = AMS;
+        // Assemble ordinary member loads into [AE] exactly as before.
+        // Thermal loads get their own member-end vector and global vector [AT].
+        const mechanicalAMS = Matrix.mul(el.RTT, el.AML);
         for (let r = 0; r < 6; r++) {
             if (idxs[r] === null) continue;
-            AE[idxs[r]][0] -= AMS[r][0];
+            AE[idxs[r]][0] -= mechanicalAMS[r][0];
         }
+
+        const thermalAML = Matrix.zeros(6, 1);
+        const ignoreAxialThermal = getGlobalDofNumberingConfig().skipAxial;
+        model.loads.forEach((thermalLoad) => {
+            if (!isActiveLoadCase(thermalLoad) || thermalLoad.elementId !== el.id) return;
+            if (thermalLoad.type !== "Uniform Temperature Change" && thermalLoad.type !== "Temperature Gradient") return;
+            const thermalActions = calculatePlaneThermalFixedEndActions(tmpl, thermalLoad, ignoreAxialThermal);
+            thermalActions.forEach((value, index) => { thermalAML[index][0] += value; });
+        });
+
+        const thermalAMS = assembleThermalEquivalentNodalActions(AT, el.RTT, thermalAML, idxs);
+        el.thermalAML = thermalAML;
+        el.thermalAMS = thermalAMS;
+
+        // Keep the combined local end-action vector for Step 7 member-force
+        // recovery, while [AE] remains strictly mechanical and [AT] is thermal.
+        for (let r = 0; r < 6; r++) el.AML[r][0] += thermalAML[r][0];
+        const AMS = Matrix.mul(el.RTT, el.AML);
+        el.AMS = AMS;
 
         if (!heavyModel) {
             html += `<h5>Element ${escapeHtml(el.id)}</h5>`;
@@ -386,7 +397,19 @@ function solveStep3(ctx, step1) {
         html += `</div>`;
     }
 
-    return { SJ, AE, AJ, html };
+    return { SJ, AE, AJ, AT, html };
+}
+
+// Assemble the negative transformed thermal fixed-end actions into [AT].
+// This mirrors the sign used for equivalent member-load actions in [AE] but
+// stores thermal contributions separately to avoid double counting.
+function assembleThermalEquivalentNodalActions(AT, RTT, thermalAML, indices) {
+    const thermalAMS = Matrix.mul(RTT, thermalAML);
+    for (let r = 0; r < indices.length; r++) {
+        if (indices[r] === null) continue;
+        AT[indices[r]][0] -= thermalAMS[r][0];
+    }
+    return thermalAMS;
 }
 
 // Return the six local fixed-end actions produced by a thermal input. The
