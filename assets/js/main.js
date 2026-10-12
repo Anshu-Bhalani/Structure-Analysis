@@ -1058,7 +1058,7 @@ function getPersistedInputModel() {
     // copying those objects directly would make exported/saved files enormous.
     const INPUT_FIELD_KEYS = {
         nodes: ["id", "x", "y", "z"],
-        elementTemplates: ["id", "I", "E_kN_m2", "E_GPa", "E", "G_GPa", "J", "A"],
+        elementTemplates: ["id", "I", "E_kN_m2", "G_GPa", "J", "A"],
         elements: ["id", "templateId", "startNode", "endNode"],
         supportTemplates: ["id", "description", "type", "builtIn", "restraints", "displacement"],
         supportAssignments: ["id", "supportId", "nodeId", "prescribedDisplacements"],
