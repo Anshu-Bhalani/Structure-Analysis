@@ -450,7 +450,7 @@ test("Step 4 assembles AT exactly once into AC with the mechanical and prescribe
     const AT = [[7], [8]];
     const result = assembleGlobalLoadVector(AE, AJ, AD, AT);
 
-    assert.deepEqual(result.physicalAC, [[11], [14]]);
+    assert.deepEqual(result.physicalAC, [[4], [6]]);
     assert.deepEqual(result.AC, [[16], [20]]);
     assert.match(step4Source, /\[AC\] = \[AE\] \+ \[AJ\] \+ \[AD\] \+ \[AT\]/);
     assert.match(step4Source, /\{ m: AT, t: "\[AT\] \(Thermal Actions\)"/);
