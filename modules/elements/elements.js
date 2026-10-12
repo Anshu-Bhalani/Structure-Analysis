@@ -17,7 +17,7 @@ mountModuleHTML(".container", "beforeend", `
                 <div class="grid grid-3">
                     <div class="field"><label for="elementTemplateId">Element Template ID</label><input id="elementTemplateId" placeholder="E1" value="E1"></div>
                     <div class="field"><label for="elementI">Moment of Inertia (I)</label><div class="input-wrap has-unit"><input id="elementI" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m⁴</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementI')">e</button></div></div>
-                    <div class="field"><label for="elementE">Modulus of Elasticity (E)</label><div class="input-wrap has-unit"><input id="elementE" type="text" inputmode="decimal" placeholder="0.000001" value="0.000001"><span class="input-unit">GPa</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementE')">e</button></div></div>
+                    <div class="field"><label for="elementE">Modulus of Elasticity (E)</label><div class="input-wrap has-unit"><input id="elementE" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">kN/m²</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementE')">e</button></div></div>
                     <div class="field plane-only-property"><label for="elementA">Cross-sectional Area (A)</label><div class="input-wrap has-unit"><input id="elementA" type="text" inputmode="decimal" placeholder="1" value="1"><span class="input-unit">m²</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('elementA')">e</button></div></div>
                 </div>
                 <div id="gridElementProperties" class="grid grid-2" style="display:none; margin-top:14px;">
@@ -40,7 +40,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Template ID</th><th>I (m⁴)</th><th>E (GPa)</th><th class="grid-only-property" style="display:none;">G (GPa)</th><th class="grid-only-property" style="display:none;">J (m⁴)</th><th class="plane-only-property">A (m²)</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Template ID</th><th>I (m⁴)</th><th>E (kN/m²)</th><th class="grid-only-property" style="display:none;">G (GPa)</th><th class="grid-only-property" style="display:none;">J (m⁴)</th><th class="plane-only-property">A (m²)</th><th>Actions</th></tr></thead>
                     <tbody id="elementTemplateTable"></tbody>
                 </table>
             </div>
@@ -108,10 +108,10 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
     if (!id) return alert("Element Template ID is required.");
     if (hasId(model.elementTemplates, id, editingElementTemplateId)) return alert("Element Template ID already exists.");
     const gridMode = isGridAnalysisMode();
-    const I = num("elementI"), E_GPa = num("elementE"), G_GPa = num("elementG"), J = num("elementJ"), A = num("elementA");
+    const I = num("elementI"), E_kN_m2 = num("elementE"), G_GPa = num("elementG"), J = num("elementJ"), A = num("elementA");
     const validations = [
         [I, "Moment of Inertia (I)", gridMode ? { minExclusive: 0 } : { min: 0 }],
-        [E_GPa, "Modulus of Elasticity (E)", { minExclusive: 0 }],
+        [E_kN_m2, "Modulus of Elasticity (E)", { minExclusive: 0 }],
     ];
     if (gridMode) {
         validations.push([G_GPa, "Shear Modulus (G)", { minExclusive: 0 }], [J, "Torsional Constant (J)", { minExclusive: 0 }]);
@@ -126,7 +126,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
     // Keep the two property sets separate. Values from the other solver mode
     // must not leak into the saved template when a template is edited.
     const data = {
-        id, I, E_GPa,
+        id, I, E_kN_m2,
         G_GPa: gridMode ? G_GPa : undefined,
         J: gridMode ? J : undefined,
         A: gridMode ? undefined : A
@@ -153,7 +153,7 @@ function editElementTemplate(encodedId) {
     editingElementTemplateId = template.id;
     document.getElementById("elementTemplateId").value = template.id;
     document.getElementById("elementI").value = template.I;
-    document.getElementById("elementE").value = template.E_GPa;
+    document.getElementById("elementE").value = getElementEInternal(template);
     document.getElementById("elementG").value = template.G_GPa ?? "";
     document.getElementById("elementJ").value = template.J ?? "";
     document.getElementById("elementA").value = template.A ?? "1";
@@ -165,7 +165,7 @@ function renderElementTemplates() {
     const rows = model.elementTemplates.filter((e) => e.id.toLowerCase().includes(search));
     if (!rows.length) return showEmpty("elementTemplateTable", isGridAnalysisMode() ? 6 : 5);
     tbody.innerHTML = rows.map((e) =>
-        `<tr data-sort-collection="elementTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-blue">${escapeHtml(e.id)}</span></td><td>${formatNum(e.I)}</td><td>${formatNum(Number(e.E_GPa))}</td><td class="grid-only-property" style="display:none;">${e.G_GPa === undefined || e.G_GPa === "" ? "—" : formatNum(Number(e.G_GPa))}</td><td class="grid-only-property" style="display:none;">${e.J === undefined || e.J === "" ? "—" : formatNum(Number(e.J))}</td><td class="plane-only-property">${e.A === undefined || e.A === "" ? "—" : formatNum(Number(e.A))}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit element template ${escapeHtml(e.id)}" title="Edit element template ${escapeHtml(e.id)}" onclick="editElementTemplate('${encodeInlineArgument(e.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete element template ${escapeHtml(e.id)}" title="Delete element template ${escapeHtml(e.id)}" onclick="deleteItem('elementTemplates','${encodeInlineArgument(e.id)}','id')">×</button></div></td></tr>`
+        `<tr data-sort-collection="elementTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(e.id))}"><td>${sortHandle(e.id)}<span class="badge badge-blue">${escapeHtml(e.id)}</span></td><td>${formatNum(e.I)}</td><td>${formatNum(getElementEInternal(e))}</td><td class="grid-only-property" style="display:none;">${e.G_GPa === undefined || e.G_GPa === "" ? "—" : formatNum(Number(e.G_GPa))}</td><td class="grid-only-property" style="display:none;">${e.J === undefined || e.J === "" ? "—" : formatNum(Number(e.J))}</td><td class="plane-only-property">${e.A === undefined || e.A === "" ? "—" : formatNum(Number(e.A))}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit element template ${escapeHtml(e.id)}" title="Edit element template ${escapeHtml(e.id)}" onclick="editElementTemplate('${encodeInlineArgument(e.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete element template ${escapeHtml(e.id)}" title="Delete element template ${escapeHtml(e.id)}" onclick="deleteItem('elementTemplates','${encodeInlineArgument(e.id)}','id')">×</button></div></td></tr>`
     ).join("");
 }
 

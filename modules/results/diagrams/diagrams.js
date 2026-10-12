@@ -2283,7 +2283,7 @@ function buildElementPropertiesLegendRows() {
         const base = {
             id: String(el.id),
             L: num(L),
-            E: tmpl ? num(getElementEInternal(tmpl) / 1e6) : '—',
+            E: tmpl ? num(getElementEInternal(tmpl)) : '—',
             I: tmpl ? num(Number(tmpl.I)) : '—',
         };
         if (grid) {
@@ -2334,8 +2334,8 @@ function buildResultDiagramLegend(mode, deformationScale = 1) {
         const td = cell + ';font-weight:400;text-align:right;padding:0 0 0 14px';
         const idTd = cell + ';font-weight:700;text-align:left;padding:0';
         const columns = grid
-            ? [{ key: 'L', label: 'L (m)' }, { key: 'I', label: 'I (m⁴)' }, { key: 'J', label: 'J (m⁴)' }, { key: 'E', label: 'E (GPa)' }, { key: 'G', label: 'G (GPa)' }]
-            : [{ key: 'L', label: 'L (m)' }, { key: 'A', label: 'A (m²)' }, { key: 'E', label: 'E (GPa)' }, { key: 'I', label: 'I (m⁴)' }];
+            ? [{ key: 'L', label: 'L (m)' }, { key: 'I', label: 'I (m⁴)' }, { key: 'J', label: 'J (m⁴)' }, { key: 'E', label: 'E (kN/m²)' }, { key: 'G', label: 'G (GPa)' }]
+            : [{ key: 'L', label: 'L (m)' }, { key: 'A', label: 'A (m²)' }, { key: 'E', label: 'E (kN/m²)' }, { key: 'I', label: 'I (m⁴)' }];
         // The list may be long: it scrolls inside the legend instead of covering the diagram.
         const scrollStyle = legendStyle.replace('pointer-events:none', 'pointer-events:auto') + ';max-height:45%;overflow:auto';
         return `<div class="result-diagram-fixed-legend" style="${scrollStyle}">

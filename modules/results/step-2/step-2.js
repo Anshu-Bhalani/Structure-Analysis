@@ -26,10 +26,10 @@ function solveStep2(ctx, step1) {
             const label = (idx) => step1.isRestrained[idx] ? `R (${formatNum(step1.prescribedDisp[idx])})` : `D${idx + 1}`;
             return `<tr><td>${escapeHtml(n.nodeId)}</td><td>${formatNum(n.x)}</td><td>${formatNum(n.y)}</td><td>${label(d.x)}</td><td>${label(d.y)}</td><td>${label(d.z)}</td></tr>`;
         }).join("");
-        const memberRows = members.map((m) => `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(m.length)}</td><td>${formatNum(m.E_GPa)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(m.I)}</td><td>${formatNum(m.J)}</td></tr>`).join("");
+        const memberRows = members.map((m) => `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(m.length)}</td><td>${formatNum(m.E_kN_m2)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(m.I)}</td><td>${formatNum(m.J)}</td></tr>`).join("");
         const html = `<div class="calc-step"><h4>Step 2: Grid Joint and Member Properties</h4>
             <h5>Joint Properties</h5><div class="table-wrap" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Joint</th><th>X (m)</th><th>Y (m)</th><th>θX</th><th>θY</th><th>ΔZ</th></tr></thead><tbody>${jointRows}</tbody></table></div>
-            <h5>Member Properties</h5><div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Member</th><th>Start Node</th><th>End Node</th><th>L (m)</th><th>E (GPa)</th><th>G (GPa)</th><th>I (m⁴)</th><th>J (m⁴)</th></tr></thead><tbody>${memberRows}</tbody></table></div>
+            <h5>Member Properties</h5><div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Member</th><th>Start Node</th><th>End Node</th><th>L (m)</th><th>E (kN/m²)</th><th>G (GPa)</th><th>I (m⁴)</th><th>J (m⁴)</th></tr></thead><tbody>${memberRows}</tbody></table></div>
             <h5>Grid Stiffness Terms</h5><p>Computed from the Grid engine: m = GJ/L, a = 12EI/L³, b = 6EI/L², c = 4EI/L. Grid self-weight, when needed, must be entered directly as a line weight in kN/m.</p></div>`;
         return { html };
     }
@@ -96,7 +96,7 @@ function solveStep2(ctx, step1) {
 
         memberTableRows += `<tr>
             <td>${index + 1}</td><td>${escapeHtml(el.startNode)}</td><td>${escapeHtml(el.endNode)}</td>
-            <td>${formatNum(A)}</td><td>${formatNum(E / 1e6)}</td><td>${formatNum(I)}</td><td>${formatNum(L)}</td>
+            <td>${formatNum(A)}</td><td>${formatNum(E)}</td><td>${formatNum(I)}</td><td>${formatNum(L)}</td>
             <td>${formatNum(d_val)}</td><td>${formatNum(cx)}</td><td>${formatNum(cy)}</td>
             <td>${formatNum(dCx2)}</td><td>${formatNum(dCy2)}</td><td>${formatNum(dCxCy)}</td>
             <td>${formatNum(a_val)}</td><td>${formatNum(b_val)}</td><td>${formatNum(c_val)}</td>
@@ -121,7 +121,7 @@ function solveStep2(ctx, step1) {
             <table style="min-width: 100%; background: white;">
                 <thead><tr>
                     <th style="text-transform: none;">member number</th><th style="text-transform: none;">node id start</th><th style="text-transform: none;">node id end</th>
-                    <th style="text-transform: none;">A (m²)</th><th style="text-transform: none;">E (GPa)</th><th style="text-transform: none;">I (m⁴)</th><th style="text-transform: none;">L (m)</th>
+                    <th style="text-transform: none;">A (m²)</th><th style="text-transform: none;">E (kN/m²)</th><th style="text-transform: none;">I (m⁴)</th><th style="text-transform: none;">L (m)</th>
                     <th style="text-transform: none;">d=AE/L (kN/m)</th><th style="text-transform: none;">Cx=(xk-xj)/L</th><th style="text-transform: none;">Cy=(yk-yj)/L</th>
                     <th style="text-transform: none;">d(Cx²)</th><th style="text-transform: none;">d(Cy²)</th><th style="text-transform: none;">d(Cx*Cy)</th>
                     <th style="text-transform: none;">a=12EI/(L³) (kN/m)</th><th style="text-transform: none;">b=6EI/(L²) (kN)</th><th style="text-transform: none;">c=4EI/L (kN·m)</th>

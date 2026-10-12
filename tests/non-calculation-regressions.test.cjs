@@ -38,7 +38,7 @@ function baseModel(mode) {
     return {
         analysisMode: mode || "plane",
         nodes: [{ id: "N1", x: 0, y: 0, z: 0 }, { id: "N2", x: 4, y: 0, z: 0 }],
-        elementTemplates: [grid ? { id: "T1", I: 1, E_GPa: 1, G_GPa: 1, J: 1 } : { id: "T1", I: 1, E_GPa: 1, A: 1 }],
+        elementTemplates: [grid ? { id: "T1", I: 1, E_kN_m2: 1_000_000, G_GPa: 1, J: 1 } : { id: "T1", I: 1, E_kN_m2: 1_000_000, A: 1 }],
         elements: [{ id: "E1", templateId: "T1", startNode: "N1", endNode: "N2" }],
         supportTemplates: [], supportAssignments: [],
         loadCases: [{ id: "LC1", type: "Dead" }], loads: [],
@@ -330,9 +330,11 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
     assert.ok(openSource.indexOf("syncDiagramModeLabels()") < openSource.indexOf('getElementById("fsModeSelect").value'));
 
     const versionByFile = {
-        "assets/js/main.js": "v=20261012-prescribed-support-AD",
-        "modules/results/results.js": "v=20261011-grid-my-torsion-refresh",
-        "modules/results/diagrams/diagrams.js": "v=20261011-grid-my-torsion-refresh"
+        "assets/js/main.js": "v=20261012-element-E-kn-m2",
+        "modules/elements/elements.js": "v=20261012-element-E-kn-m2",
+        "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
+        "modules/results/diagrams/diagrams.js": "v=20261012-element-E-kn-m2",
+        "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
     for (const [file, version] of Object.entries(versionByFile)) {
         assert.ok(indexSource.includes(file + "?" + version), "missing cache-busted script reference for " + file);
