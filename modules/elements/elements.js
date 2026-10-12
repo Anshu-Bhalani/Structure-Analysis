@@ -125,7 +125,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
         validations.push([G_GPa, "Shear Modulus (G)", { minExclusive: 0 }], [J, "Torsional Constant (J)", { minExclusive: 0 }]);
     } else {
         validations.push(
-            [A, "Cross-sectional Area (A)", memberType === "beam" ? { min: 0 } : { minExclusive: 0 }],
+            [A, "Cross-sectional Area (A)", { minExclusive: 0 }],
             [alpha, "Thermal Expansion Coefficient (α)", { min: 0 }],
             [thermalDepth, "Thermal Section Depth (d)", { min: 0 }]
         );
@@ -135,7 +135,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
         const error = requireFinite(value, label, options);
         if (error) return alert(error);
     }
-    if (!gridMode && memberType === "beam" && I <= 0) return alert("A Beam requires I > 0. Its axial area A can be zero only for legacy bending-only models.");
+    if (!gridMode && memberType === "beam" && I <= 0) return alert("A Beam requires both A > 0 and I > 0.");
     if (!gridMode && memberType === "frame" && I <= 0) return alert("A Frame requires both A > 0 and I > 0.");
     // Keep the two property sets separate. Values from the other solver mode
     // must not leak into the saved template when a template is edited.
@@ -162,6 +162,7 @@ document.getElementById("elementTemplateForm").addEventListener("submit", (e) =>
 });
 function resetElementTemplateForm() {
     document.getElementById("elementTemplateForm").reset();
+    syncElementTemplateTypeUI();
     editingElementTemplateId = null;
     document.getElementById("elementTemplateSubmitBtn").textContent = "Create Element Template";
 }
