@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "assets/js/main.js"), "utf8");
 const supportsSource = fs.readFileSync(path.join(root, "modules/supports/supports.js"), "utf8");
 const step1Source = fs.readFileSync(path.join(root, "modules/results/step-1/step-1.js"), "utf8");
+const step3Source = fs.readFileSync(path.join(root, "modules/results/step-3/step-3.js"), "utf8");
 const step4Source = fs.readFileSync(path.join(root, "modules/results/step-4/step-4.js"), "utf8");
 const step5Source = fs.readFileSync(path.join(root, "modules/results/step-5/step-5.js"), "utf8");
 const step6Source = fs.readFileSync(path.join(root, "modules/results/step-6/step-6.js"), "utf8");
