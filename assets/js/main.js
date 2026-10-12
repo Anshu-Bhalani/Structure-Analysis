@@ -301,6 +301,12 @@ function syncAnalysisModeUI() {
     });
     const dofBox = document.getElementById("planeDofNumberingBox");
     if (dofBox) dofBox.style.display = isGridAnalysisMode() ? "none" : "block";
+    document.querySelectorAll(".plane-support-movement").forEach((field) => {
+        field.style.display = gridMode ? "none" : "";
+    });
+    document.querySelectorAll(".grid-support-movement").forEach((field) => {
+        field.style.display = gridMode ? "" : "none";
+    });
     const modeNote = document.getElementById("analysisModeNote");
     if (modeNote) {
         modeNote.textContent = isGridAnalysisMode()
@@ -936,6 +942,100 @@ function showEmpty(tbodyId, colspan, title = "No records yet") {
         `<tr><td colspan="${colspan}"><div class="empty"><div class="empty-icon">○</div><h4>${title}</h4><div>Create an item using the form above.</div></div></td></tr>`;
 }
 
+// Per-assignment prescribed movements use the same six-component schema as the
+// legacy support-template fields, but values now belong to a single node:
+// plane: dx, dy, tz; Grid: tx, ty, dz.
+const SUPPORT_MOVEMENT_FIELDS = ["dx", "dy", "dz", "tx", "ty", "tz"];
+const ZERO_SUPPORT_MOVEMENTS = Object.freeze({ dx: 0, dy: 0, dz: 0, tx: 0, ty: 0, tz: 0 });
+
+function supportTemplateRestrainsMovement(template, field, gridMode = isGridAnalysisMode()) {
+    if (!template) return false;
+    // The Grid solver defines its own effective built-in supports independently
+    // of the plane-model checkbox fields stored in the common UI templates.
+    if (gridMode && ["FIXED", "ROLLER", "HINGED"].includes(String(template.id))) {
+        const gridBuiltIns = {
+            FIXED: { tx: true, ty: true, dz: true },
+            ROLLER: { tx: false, ty: false, dz: true },
+            HINGED: { tx: false, ty: false, dz: true },
+        };
+        if (Object.prototype.hasOwnProperty.call(gridBuiltIns, template.id)) {
+            return !!gridBuiltIns[template.id][field];
+        }
+    }
+    const restraintKey = gridMode
+        ? ({ tx: "RFx", ty: "RFy", dz: "RMz" })[field]
+        : ({ dx: "RFx", dy: "RFy", tz: "RMz" })[field];
+    // Components unused by the selected analysis mode are not boundary inputs.
+    if (!restraintKey) return true;
+    return !!template.restraints?.[restraintKey];
+}
+
+function getSupportAssignmentPrescribedDisplacements(assignment, template) {
+    const input = assignment?.prescribedDisplacements;
+    const hasAssignmentValues = input && typeof input === "object" && !Array.isArray(input) &&
+        SUPPORT_MOVEMENT_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(input, field));
+    const source = hasAssignmentValues ? input : (template?.displacement || ZERO_SUPPORT_MOVEMENTS);
+    const result = {};
+    SUPPORT_MOVEMENT_FIELDS.forEach((field) => {
+        const raw = source?.[field];
+        if (raw === undefined || raw === null || raw === "") {
+            result[field] = 0;
+            return;
+        }
+        const value = Number(raw);
+        result[field] = Number.isFinite(value) ? value : raw;
+    });
+    return result;
+}
+
+// Migrate old projects that stored settlement/rotation on a reusable support
+// template. The old value is copied to each assignment using that template, and
+// the template field is zeroed only after validation succeeds.
+function normalizeLegacySupportMovementAssignments(source, { clearTemplateValues = false } = {}) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return source;
+    const templates = Array.isArray(source.supportTemplates) ? source.supportTemplates : [];
+    const assignments = Array.isArray(source.supportAssignments) ? source.supportAssignments : [];
+    const templateById = new Map(templates.map((template) => [String(template.id), template]));
+    const gridMode = source.analysisMode === "grid";
+    const normalizedAssignments = assignments.map((assignment) => {
+        const template = templateById.get(String(assignment.supportId)) ||
+            AppConfig.builtInSupportTemplates.find((item) => String(item.id) === String(assignment.supportId));
+        const raw = assignment.prescribedDisplacements;
+        const hasAssignmentValues = raw && typeof raw === "object" && !Array.isArray(raw) &&
+            SUPPORT_MOVEMENT_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(raw, field));
+        const legacyValues = template?.displacement || ZERO_SUPPORT_MOVEMENTS;
+        const movements = {};
+        SUPPORT_MOVEMENT_FIELDS.forEach((field) => {
+            const valueSource = hasAssignmentValues ? raw : legacyValues;
+            const value = valueSource?.[field];
+            if (value === undefined || value === null || value === "") {
+                movements[field] = 0;
+                return;
+            }
+            const number = Number(value);
+            movements[field] = Number.isFinite(number) ? number : value;
+        });
+
+        // Old solver behavior ignored prescribed movements on unrestrained DOFs.
+        // Preserve that behavior while migrating legacy template-owned values.
+        if (!hasAssignmentValues) {
+            SUPPORT_MOVEMENT_FIELDS.forEach((field) => {
+                if (!supportTemplateRestrainsMovement(template, field, gridMode)) movements[field] = 0;
+            });
+        }
+        return { ...assignment, prescribedDisplacements: movements };
+    });
+
+    const normalized = { ...source, supportAssignments: normalizedAssignments };
+    if (clearTemplateValues && Array.isArray(source.supportTemplates)) {
+        normalized.supportTemplates = templates.map((template) => ({
+            ...template,
+            displacement: { ...ZERO_SUPPORT_MOVEMENTS },
+        }));
+    }
+    return normalized;
+}
+
 // ==========================================================================
 // 6. PERSISTENCE
 // Save/load the input model to localStorage, export/import as JSON, clear all data.
@@ -952,7 +1052,7 @@ function getPersistedInputModel() {
         elementTemplates: ["id", "I", "E_GPa", "G_GPa", "J", "A"],
         elements: ["id", "templateId", "startNode", "endNode"],
         supportTemplates: ["id", "description", "type", "builtIn", "restraints", "displacement"],
-        supportAssignments: ["id", "supportId", "nodeId"],
+        supportAssignments: ["id", "supportId", "nodeId", "prescribedDisplacements"],
         loadCases: ["id", "type", "description", "memberSelfWeights"],
         loads: ["id", "loadCaseId", "type", "nodeId", "elementId", "axisSystem", "angle", "distance", "distanceEnd", "Fx", "Fy", "Fz", "FxEnd", "FyEnd", "FzEnd"],
         momentCases: ["id", "type", "description"],
@@ -988,7 +1088,7 @@ function validatePersistedInputModel(source) {
     if (source.analysisMode !== undefined && !["plane", "grid"].includes(source.analysisMode)) {
         throw new Error("Model analysisMode must be either 'plane' or 'grid'.");
     }
-    source = normalizeLegacySelfWeightModel(source);
+    source = normalizeLegacySelfWeightModel(normalizeLegacySupportMovementAssignments(source));
 
     const requiredCollections = ["nodes", "elementTemplates", "elements"];
     requiredCollections.forEach((key) => {
@@ -1166,6 +1266,25 @@ function validatePersistedInputModel(source) {
             throw new Error(`Node '${nodeKey}' has multiple support assignments. Combine the required restraints into one support template before importing.`);
         }
         assignedSupportNodes.add(nodeKey);
+
+        if (assignment.prescribedDisplacements !== undefined) {
+            const movements = assignment.prescribedDisplacements;
+            if (!movements || typeof movements !== "object" || Array.isArray(movements)) {
+                throw new Error(`Support assignment '${assignment.id}' prescribedDisplacements must be an object.`);
+            }
+            SUPPORT_MOVEMENT_FIELDS.forEach((field) => {
+                requireFiniteField(movements, field, `Support assignment '${assignment.id}' movement '${field}'`, { optional: true });
+            });
+            const supportTemplate = collections.supportTemplates.find((item) => String(item.id) === String(assignment.supportId)) ||
+                AppConfig.builtInSupportTemplates.find((item) => String(item.id) === String(assignment.supportId));
+            const activeMovementFields = gridModel ? ["tx", "ty", "dz"] : ["dx", "dy", "tz"];
+            activeMovementFields.forEach((field) => {
+                const value = movements[field] === undefined || movements[field] === null || movements[field] === "" ? 0 : Number(movements[field]);
+                if (Number.isFinite(value) && value !== 0 && !supportTemplateRestrainsMovement(supportTemplate, field, gridModel)) {
+                    throw new Error(`Support assignment '${assignment.id}' prescribes ${field}=${value} at node '${nodeKey}', but support '${assignment.supportId}' does not restrain that degree of freedom.`);
+                }
+            });
+        }
     });
     const gridModel = source.analysisMode === "grid";
     const getElementLength = (elementId, description) => {
@@ -1272,9 +1391,11 @@ function resetAllEditForms() {
 }
 
 function applyPersistedInputModel(source) {
-    // Normalize legacy weight fields and validate before mutating live state.
-    const normalizedSource = normalizeLegacySelfWeightModel(source);
-    validatePersistedInputModel(normalizedSource);
+    // Migrate legacy template-owned settlements to assignments, validate the
+    // complete input, and only then clear the old template movement values.
+    const assignmentNormalized = normalizeLegacySupportMovementAssignments(normalizeLegacySelfWeightModel(source));
+    validatePersistedInputModel(assignmentNormalized);
+    const normalizedSource = normalizeLegacySupportMovementAssignments(assignmentNormalized, { clearTemplateValues: true });
     resetAllEditForms();
     AppConfig.persistedModelKeys.forEach((key) => {
         model[key] = Array.isArray(normalizedSource?.[key]) ? normalizedSource[key] : [];
@@ -2883,13 +3004,17 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
     const gridSupportRestraints = assignment => {
       const template = model.supportTemplates.find(support => support.id === assignment.supportId);
       if (!template) return { rx: false, ry: false, rz: false, dx: 0, dy: 0, dz: 0 };
+      const movement = assignment.prescribedDisplacements &&
+        typeof assignment.prescribedDisplacements === "object" && !Array.isArray(assignment.prescribedDisplacements)
+          ? assignment.prescribedDisplacements
+          : (template.displacement || {});
       return {
         rx: !!(template.restraints && template.restraints.RFx),
         ry: !!(template.restraints && template.restraints.RFy),
         rz: !!(template.restraints && template.restraints.RMz),
-        dx: Number(template.displacement && template.displacement.tx) || 0,
-        dy: Number(template.displacement && template.displacement.ty) || 0,
-        dz: Number(template.displacement && template.displacement.dz) || 0
+        dx: Number(movement.tx) || 0,
+        dy: Number(movement.ty) || 0,
+        dz: Number(movement.dz) || 0
       };
     };
 
