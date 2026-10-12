@@ -291,6 +291,17 @@ function solveStep3(ctx, step1) {
             }
         });
 
+        // Temperature inputs are equivalent member fixed-end actions, so they
+        // pass through the existing AML -> global assembly -> reactions/results
+        // pathway alongside mechanical element loads.
+        const ignoreAxialThermal = getGlobalDofNumberingConfig().skipAxial;
+        model.loads.forEach((thermalLoad) => {
+            if (!isActiveLoadCase(thermalLoad) || thermalLoad.elementId !== el.id) return;
+            if (thermalLoad.type !== "Uniform Temperature Change" && thermalLoad.type !== "Temperature Gradient") return;
+            const thermalActions = calculatePlaneThermalFixedEndActions(tmpl, thermalLoad, ignoreAxialThermal);
+            thermalActions.forEach((value, index) => { el.AML[index][0] += value; });
+        });
+
         model.moments.forEach((m) => {
             if (!isActiveMomentCase(m)) return;
             // UI convention: +Mz is anticlockwise, matching the
@@ -376,6 +387,43 @@ function solveStep3(ctx, step1) {
     }
 
     return { SJ, AE, AJ, html };
+}
+
+// Return the six local fixed-end actions produced by a thermal input. The
+// established solver convention is AML + SM·RT·DS for recovered member ends,
+// and the global equivalent nodal vector is assembled as -RTᵀ·AML.
+function calculatePlaneThermalFixedEndActions(template, load, ignoreAxial = false) {
+    const actions = [0, 0, 0, 0, 0, 0];
+    if (!template || !load) return actions;
+    const E = getElementEInternal(template);
+    const A = Number(template.A) || 0;
+    const I = Number(template.I) || 0;
+    const alpha = Number(template.alpha) || 0;
+    if (!(E > 0) || !(alpha > 0)) return actions;
+
+    if (load.type === "Uniform Temperature Change") {
+        // Fully restrained axial thermal action magnitude: EAαΔT.
+        // Heating (ΔT > 0) produces compression; the end-action signs below
+        // match the element's local axial DOF convention.
+        const deltaT = Number(load.temperatureDelta);
+        if (!ignoreAxial && A > 0 && Number.isFinite(deltaT)) {
+            const axialAction = E * A * alpha * deltaT;
+            actions[0] = axialAction;
+            actions[3] = -axialAction;
+        }
+    } else if (load.type === "Temperature Gradient") {
+        // Face 1 is the local −Y face and Face 2 the local +Y face, so the
+        // thermal curvature is α(T1−T2)/d. Section depth is measured in metres.
+        const T1 = Number(load.temperatureT1);
+        const T2 = Number(load.temperatureT2);
+        const depth = Number(template.thermalDepth);
+        if (I > 0 && depth > 0 && Number.isFinite(T1) && Number.isFinite(T2)) {
+            const thermalMoment = E * I * alpha * (T1 - T2) / depth;
+            actions[2] = thermalMoment;
+            actions[5] = -thermalMoment;
+        }
+    }
+    return actions;
 }
 
 function renderStep3(step3) {
