@@ -335,9 +335,12 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
     assert.ok(openSource.indexOf("syncDiagramModeLabels()") < openSource.indexOf('getElementById("fsModeSelect").value'));
 
     const versionByFile = {
-        "assets/js/main.js": "v=20261012-element-E-kn-m2",
-        "modules/elements/elements.js": "v=20261012-element-E-kn-m2",
+        "assets/js/main.js": "v=20261012-temperature-loads-v1",
+        "modules/elements/elements.js": "v=20261012-temperature-loads-v1",
+        "modules/load/load.js": "v=20261012-temperature-loads-v1",
+        "modules/results/step-1/step-1.js": "v=20261012-temperature-loads-v1",
         "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
+        "modules/results/step-3/step-3.js": "v=20261012-temperature-loads-v1",
         "modules/results/diagrams/diagrams.js": "v=20261012-element-E-kn-m2",
         "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
