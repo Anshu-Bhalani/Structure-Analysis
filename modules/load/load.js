@@ -59,6 +59,7 @@ mountModuleHTML(".container", "beforeend", `
                     <div id="temperatureDeltaField" class="field">
                         <label for="loadTemperatureDelta">Uniform Temperature Change (ΔT)</label>
                         <div class="input-wrap has-unit"><input id="loadTemperatureDelta" type="text" inputmode="decimal" placeholder="e.g. 30" value="0"><span class="input-unit">°C</span></div>
+                        <p style="color:#64748b; margin:8px 0 0; font-size:0.9em;">Free expansion: ΔL = LαΔT. If restrained, the axial thermal force magnitude is EAαΔT.</p>
                     </div>
                     <div id="temperatureGradientFields" class="grid grid-2" style="display:none;">
                         <div class="field"><label for="loadTemperatureT1">Face 1 Temperature Change (T1)</label><div class="input-wrap has-unit"><input id="loadTemperatureT1" type="text" inputmode="decimal" placeholder="e.g. 30" value="0"><span class="input-unit">°C</span></div></div>
