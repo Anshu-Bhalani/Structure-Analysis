@@ -465,7 +465,7 @@ test("Grid Step 3 supplies a zero AT vector and does not change Grid loading", (
 test("editing a saved temperature-gradient load restores and reveals both T1/T2 inputs", () => {
     assert.match(loadModuleSource, /id="loadTemperatureT1"/);
     assert.match(loadModuleSource, /id="loadTemperatureT2"/);
-    const editSource = section(loadModuleSource, "function editLoad(encodedId) {", "\\nfunction renderLoads()");
+    const editSource = section(loadModuleSource, "function editLoad(encodedId) {", "function renderLoads()");
     const restoredType = editSource.indexOf('document.getElementById("loadType").value = load.type;');
     const restoredT1 = editSource.indexOf('document.getElementById("loadTemperatureT1").value = load.temperatureT1 ?? 0;');
     const restoredT2 = editSource.indexOf('document.getElementById("loadTemperatureT2").value = load.temperatureT2 ?? 0;');
