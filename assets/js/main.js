@@ -470,26 +470,35 @@ function formatNum(num) {
 // ==========================================================================
 // UNIT SYSTEM
 // Internal analysis units: kN, m, kN/m, kN·m, kN/m².
-// UI material stiffness is entered in GPa and converted to kN/m².
+// Young's modulus E is entered/stored in kN/m². Grid shear modulus G remains entered in GPa.
 // ==========================================================================
 function getElementEInternal(tmpl) {
     if (!tmpl) return 0;
     const hasValue = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    // Canonical material unit: kN/m². Legacy fields remain readable during import/migration.
+    if (hasValue(tmpl.E_kN_m2)) return Number(tmpl.E_kN_m2);
     if (hasValue(tmpl.E_GPa)) return Number(tmpl.E_GPa) * 1e6;
-    // Legacy v14 stored E in N/m². Convert to the new GPa field.
+    // Legacy v14 stored E in N/m².
     if (hasValue(tmpl.E)) return Number(tmpl.E) / 1000;
     return 0;
 }
 
 function migrateUnitSystem() {
     model.elementTemplates = (model.elementTemplates || []).map((tmpl) => {
+        const normalized = { ...tmpl };
         const hasValue = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
-        if (!hasValue(tmpl.E_GPa) && hasValue(tmpl.E)) {
-            // Legacy E values were entered as N/m². 1 GPa = 1e9 N/m².
-            tmpl.E_GPa = Number(tmpl.E) / 1e9;
-            delete tmpl.E;
+        if (!hasValue(normalized.E_kN_m2)) {
+            if (hasValue(normalized.E_GPa)) {
+                // Legacy saved models stored E in GPa; 1 GPa = 10⁶ kN/m².
+                normalized.E_kN_m2 = Number(normalized.E_GPa) * 1e6;
+            } else if (hasValue(normalized.E)) {
+                // Older models stored E in N/m².
+                normalized.E_kN_m2 = Number(normalized.E) / 1000;
+            }
         }
-        return tmpl;
+        delete normalized.E_GPa;
+        delete normalized.E;
+        return normalized;
     });
 }
 
@@ -1049,7 +1058,7 @@ function getPersistedInputModel() {
     // copying those objects directly would make exported/saved files enormous.
     const INPUT_FIELD_KEYS = {
         nodes: ["id", "x", "y", "z"],
-        elementTemplates: ["id", "I", "E_GPa", "G_GPa", "J", "A"],
+        elementTemplates: ["id", "I", "E_kN_m2", "E_GPa", "E", "G_GPa", "J", "A"],
         elements: ["id", "templateId", "startNode", "endNode"],
         supportTemplates: ["id", "description", "type", "builtIn", "restraints", "displacement"],
         supportAssignments: ["id", "supportId", "nodeId", "prescribedDisplacements"],
@@ -1189,9 +1198,11 @@ function validatePersistedInputModel(source) {
 
     collections.elementTemplates.forEach((template) => {
         const grid = source.analysisMode === "grid";
-        const legacyE = template.E_GPa === undefined || template.E_GPa === null || template.E_GPa === ""
-            ? template.E : template.E_GPa;
-        requireFiniteField({ E: legacyE }, "E", `Element template '${template.id}' E`, { exclusiveMin: 0 });
+        const materialE = template.E_kN_m2 !== undefined && template.E_kN_m2 !== null && template.E_kN_m2 !== ""
+            ? template.E_kN_m2
+            : (template.E_GPa !== undefined && template.E_GPa !== null && template.E_GPa !== ""
+                ? template.E_GPa : template.E);
+        requireFiniteField({ E: materialE }, "E", `Element template '${template.id}' E`, { exclusiveMin: 0 });
         requireFiniteField(template, "I", `Element template '${template.id}' I`, { min: 0 });
         if (grid) {
             const legacyG = template.G_GPa === undefined || template.G_GPa === null || template.G_GPa === ""
@@ -2800,14 +2811,16 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
       }
     }
 
-    // Migrate older files whose E and G values were stored in N/m².
+    // Normalize legacy element modulus fields into the canonical solver unit (kN/m²).
     normalized.elementTemplates = normalized.elementTemplates.map(template => {
       const item = { ...template };
       const hasValue = value => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
-      if (!hasValue(item.E_GPa) && hasValue(item.E)) {
-        item.E_GPa = Number(item.E) / 1e9;
-        delete item.E;
+      if (!hasValue(item.E_kN_m2)) {
+        if (hasValue(item.E_GPa)) item.E_kN_m2 = Number(item.E_GPa) * 1e6;
+        else if (hasValue(item.E)) item.E_kN_m2 = Number(item.E) / 1000;
       }
+      delete item.E_GPa;
+      delete item.E;
       if (!hasValue(item.G_GPa) && hasValue(item.G)) {
         item.G_GPa = Number(item.G) / 1e9;
         delete item.G;
@@ -2830,6 +2843,7 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
   function getElementEInternal(template) {
     if (!template) return 0;
     const hasValue = value => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    if (hasValue(template.E_kN_m2)) return Number(template.E_kN_m2);
     if (hasValue(template.E_GPa)) return Number(template.E_GPa) * 1e6;
     if (hasValue(template.E)) return Number(template.E) / 1000;
     return 0;
@@ -3080,7 +3094,7 @@ document.addEventListener("DOMContentLoaded", function initApplication() {
         templateId: element.templateId,
         startNode: element.startNode,
         endNode: element.endNode,
-        I: p.I, J: p.J, E_GPa: p.E / 1e6, G_GPa: p.G / 1e6, A: p.A,
+        I: p.I, J: p.J, E_kN_m2: p.E, G_GPa: p.G / 1e6, A: p.A,
         length: p.L, cx: p.cx, cy: p.cy,
         m: p.m, a: p.a, b: p.b, c: p.c,
         p: p.p, q: p.q, r: p.r, s: p.s, t: p.t,
