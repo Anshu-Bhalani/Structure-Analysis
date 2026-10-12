@@ -47,7 +47,7 @@ test("every precached asset exists and all local index resources are included", 
 });
 
 test("offline readiness UI registers the Service Worker relative to the site root", () => {
-    assert.match(offlineUiSource, /new URL\("\.\.\/", document\.currentScript\.src\)/);
+    assert.match(offlineUiSource, /new URL\\("\\.\\.\\/\\.\\.\\/", document\\.currentScript\\.src\\)/);
     assert.match(offlineUiSource, /navigator\.serviceWorker\.register\(workerUrl\.href/);
     assert.match(offlineUiSource, /GET_OFFLINE_STATUS/);
     assert.match(offlineUiSource, /Offline ready/);
