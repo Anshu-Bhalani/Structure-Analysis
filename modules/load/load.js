@@ -341,7 +341,6 @@ function editLoad(encodedId) {
     document.getElementById("loadId").value = load.id;
     document.getElementById("loadCaseSelect").value = load.loadCaseId || "";
     document.getElementById("loadType").value = load.type;
-    toggleLoadTarget();
     document.getElementById("loadAxisSystem").value = load.axisSystem || "Global";
     document.getElementById("loadAngle").value = load.angle ?? 0;
     document.getElementById("loadNode").value = load.nodeId || "";
