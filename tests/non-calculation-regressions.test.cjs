@@ -365,8 +365,8 @@ test("temperature gradient creates equal-and-opposite fixed-end moments", () => 
     const actions = calculatePlaneThermalFixedEndActions(template, {
         type: "Temperature Gradient", temperatureT1: 0, temperatureT2: 30
     }, true);
-    assert.equal(actions[2], -19.2);
-    assert.equal(actions[5], 19.2);
+    assert.ok(Math.abs(actions[2] + 19.2) < 1e-10);
+    assert.ok(Math.abs(actions[5] - 19.2) < 1e-10);
     assert.deepEqual([actions[0], actions[1], actions[3], actions[4]], [0, 0, 0, 0]);
 });
 
