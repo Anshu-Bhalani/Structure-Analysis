@@ -213,6 +213,9 @@ function createLoad(data) {
 function updateLoad(existingId, data) {
     const load = model.loads.find((l) => l.id === existingId);
     if (!load) return false;
+    // Remove any prior thermal-input fields when a load is edited to a
+    // different type, so switching load types cannot preserve stale values.
+    ["temperatureDelta", "temperatureT1", "temperatureT2"].forEach((key) => delete load[key]);
     Object.assign(load, data);
     markAnalysisInvalidated();
     return true;
