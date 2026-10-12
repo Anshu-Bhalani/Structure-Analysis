@@ -72,18 +72,29 @@
     navigator.serviceWorker.register(workerUrl.href, {
         scope: siteRoot.pathname,
         updateViaCache: "none"
-    }).then(async (registration) => {
-        if (registration.installing) {
-            registration.installing.addEventListener("statechange", () => {
-                if (registration.installing && registration.installing.state === "redundant") {
+    }).then((registration) => {
+        const installingWorker = registration.installing;
+        if (installingWorker) {
+            installingWorker.addEventListener("statechange", () => {
+                if (installingWorker.state === "redundant" && !appCacheReady) {
                     show("Offline setup failed · reconnect and reload", "warning");
+                } else if (installingWorker.state === "installed" || installingWorker.state === "activated") {
+                    askWorker(navigator.serviceWorker.controller || registration.active || installingWorker);
                 }
             });
         }
-        await navigator.serviceWorker.ready;
-        askWorker(navigator.serviceWorker.controller || registration.active);
-        // A newly activated worker can take a moment to finish its status check.
-        if (lastStatus) applyWorkerStatus(lastStatus);
+        // Don't block on navigator.serviceWorker.ready here: it remains pending
+        // when the very first installation fails. Status events handle success,
+        // and the worker statechange handler reports a failed installation.
+        if (registration.active) askWorker(navigator.serviceWorker.controller || registration.active);
+        navigator.serviceWorker.ready.then(() => {
+            askWorker(navigator.serviceWorker.controller || registration.active);
+            // A newly activated worker can take a moment to finish its status check.
+            if (lastStatus) applyWorkerStatus(lastStatus);
+        }).catch((error) => {
+            console.error("[Offline] Service Worker activation failed:", error);
+            if (!appCacheReady) show("Offline setup failed · reconnect and reload", "warning");
+        });
     }).catch((error) => {
         console.error("[Offline] Service Worker registration failed:", error);
         show("Offline setup failed · reconnect and reload", "warning");
