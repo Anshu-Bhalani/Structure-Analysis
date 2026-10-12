@@ -112,6 +112,43 @@ test("AD from a prescribed end rotation uses the corresponding EI/L and EI/L² t
     near(AD[3][0], -4 * E * I * theta / L);
 });
 
+
+test("settlement equivalent actions recover the same free rotation and support reactions as direct prescribed-displacement stiffness", () => {
+    const E = 30000;
+    const I = 0.004;
+    const L = 4;
+    const delta = 0.015;
+    const K = beamBendingStiffness(E, I, L);
+    const { Dp, AD } = buildAD(K, [0, 0, delta, 0]);
+    const physicalLoad = [[0], [0], [0], [0]];
+    const AC = physicalLoad.map((row, i) => [row[0] + AD[i][0]]);
+
+    // Left end fixed, right-end vertical movement prescribed, right rotation free.
+    const freeDof = 3;
+    const DF = [[AC[freeDof][0] / K[freeDof][freeDof]]];
+    const D = reconstructActualD(4, Dp.map((row) => row[0]), [freeDof], DF);
+
+    // Incremental free-DOF equilibrium: K_ff * DF = AC_f.
+    let freeResidual = 0;
+    for (let j = 0; j < 4; j++) freeResidual += K[freeDof][j] * D[j][0];
+    near(freeResidual, 0);
+    near(D[2][0], delta);
+
+    // Reactions from the AD-based system must equal K*D at restrained DOFs,
+    // with no imposed movement counted a second time.
+    for (const i of [0, 1, 2]) {
+        let directReaction = 0;
+        for (let j = 0; j < 4; j++) directReaction += K[i][j] * D[j][0];
+        const solvedReaction = -AC[i][0] + K[i][freeDof] * DF[0][0];
+        near(solvedReaction, directReaction);
+    }
+
+    // The right end is free to rotate, so its recovered end moment is zero.
+    let rightEndMoment = 0;
+    for (let j = 0; j < 4; j++) rightEndMoment += K[3][j] * D[j][0];
+    near(rightEndMoment, 0);
+});
+
 test("actual displacement recovery adds prescribed movement after solving free increments", () => {
     const Dp = [0, 0, 0.02, 0.1];
     const DF = [[0.03], [-0.04]];
