@@ -64,6 +64,10 @@ function solveStep5(ctx, step1, step4) {
     const SRR = Matrix.zeros(numR, numR);
     const AFC = Matrix.zeros(numF, 1);
     const ARC = Matrix.zeros(numR, 1);
+    // DpR stores the actual imposed support values for reporting. DR is the
+    // incremental restrained displacement vector used in the transformed
+    // system; it is zero because its effect is already in AD from Step 4.
+    const prescribedDR = Matrix.zeros(numR, 1);
     const DR = Matrix.zeros(numR, 1);
 
     for (let i = 0; i < numF; i++) {
@@ -74,15 +78,16 @@ function solveStep5(ctx, step1, step4) {
 
     for (let i = 0; i < numR; i++) {
         ARC[i][0] = ACR[numF + i][0];
-        DR[i][0] = Number.isFinite(Number(prescribedDisp[restIndices[i]]))
+        prescribedDR[i][0] = Number.isFinite(Number(prescribedDisp[restIndices[i]]))
             ? Number(prescribedDisp[restIndices[i]])
             : 0;
+        DR[i][0] = 0;
         for (let j = 0; j < numF; j++) SRF[i][j] = SJR[numF + i][j];
         for (let j = 0; j < numR; j++) SRR[i][j] = SJR[numF + i][numF + j];
     }
 
     let html = `<div class="calc-step"><h4>Step 5: Incorporate Boundary Conditions</h4>`;
-    html += `<p>[SJ] and [AC] are rearranged so that free degrees of freedom are listed first, followed by restrained degrees of freedom. Restrained displacements are taken from the prescribed support displacements.</p>`;
+    html += `<p>[SJ] and [AC] are rearranged so that free degrees of freedom are listed first, followed by restrained degrees of freedom. Prescribed movements have already been converted to equivalent actions [AD] in Step 4. The solve therefore uses zero incremental restrained displacement [DR] = 0; the actual prescribed movement vector [Dp] is restored in Step 6.</p>`;
 
     if (reorderedIndices.length > 0) {
         html += `<h5>Rearranged System [SJR] and [AC]R</h5>`;
@@ -118,16 +123,17 @@ function solveStep5(ctx, step1, step4) {
     }
 
     if (numR > 0) {
-        html += `<p><strong>Restrained DoFs:</strong> ${restLabels.join(", ")} &nbsp;&nbsp; <strong>[DR]:</strong> prescribed support displacements.</p>`;
+        html += `<p><strong>Restrained DoFs:</strong> ${restLabels.join(", ")} &nbsp;&nbsp; <strong>[Dp]R:</strong> prescribed support movements; <strong>[DR]:</strong> zero incremental values.</p>`;
         if (!heavyModel) {
             html += matrixEqHTML(
                 [
                     { m: SRF, t: "[SRF]", top: freeLabels, right: restLabels },
                     { m: SRR, t: "[SRR]", top: restLabels, right: restLabels },
                     { m: ARC, t: "[ARC]", right: restLabels },
-                    { m: DR, t: "[DR]", right: restLabels },
+                    { m: prescribedDR, t: "[Dp]R (actual prescribed)", right: restLabels },
+                    { m: DR, t: "[DR] (incremental = 0)", right: restLabels },
                 ],
-                [" ", " ", " "]
+                [" ", " ", " ", " "]
             );
         }
     } else {
@@ -150,6 +156,7 @@ function solveStep5(ctx, step1, step4) {
         SRR,
         AFC,
         ARC,
+        prescribedDR,
         DR,
         freeLabels,
         restLabels,
