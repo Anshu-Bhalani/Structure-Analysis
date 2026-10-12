@@ -38,7 +38,7 @@ function baseModel(mode) {
     return {
         analysisMode: mode || "plane",
         nodes: [{ id: "N1", x: 0, y: 0, z: 0 }, { id: "N2", x: 4, y: 0, z: 0 }],
-        elementTemplates: [grid ? { id: "T1", I: 1, E_GPa: 1, G_GPa: 1, J: 1 } : { id: "T1", I: 1, E_GPa: 1, A: 1 }],
+        elementTemplates: [grid ? { id: "T1", I: 1, E_kN_m2: 1_000_000, G_GPa: 1, J: 1 } : { id: "T1", I: 1, E_kN_m2: 1_000_000, A: 1 }],
         elements: [{ id: "E1", templateId: "T1", startNode: "N1", endNode: "N2" }],
         supportTemplates: [], supportAssignments: [],
         loadCases: [{ id: "LC1", type: "Dead" }], loads: [],
