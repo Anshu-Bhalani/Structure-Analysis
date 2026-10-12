@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "assets/js/main.js"), "utf8");
 const resultsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/results.js"), "utf8");
 const step3ThermalSource = fs.readFileSync(path.join(root, "modules/results/step-3/step-3.js"), "utf8");
+const loadModuleSource = fs.readFileSync(path.join(root, "modules/load/load.js"), "utf8");
 const step4Source = fs.readFileSync(path.join(root, "modules/results/step-4/step-4.js"), "utf8");
 const diagramsForDiagramLabelsSource = fs.readFileSync(path.join(root, "modules/results/diagrams/diagrams.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -460,3 +461,18 @@ test("Grid Step 3 supplies a zero AT vector and does not change Grid loading", (
     assert.match(step3ThermalSource, /Grid models do not currently accept temperature loads, so \[AT\] is zero/);
     assert.match(step3ThermalSource, /return \{ SJ, AE, AJ, AT: Matrix\.zeros\(AE\.length, 1\), html \}/);
 });
+
+test("editing a saved temperature-gradient load restores and reveals both T1/T2 inputs", () => {
+    assert.match(loadModuleSource, /id="loadTemperatureT1"/);
+    assert.match(loadModuleSource, /id="loadTemperatureT2"/);
+    const editSource = section(loadModuleSource, "function editLoad(encodedId) {", "\\nfunction renderLoads()");
+    const restoredType = editSource.indexOf('document.getElementById("loadType").value = load.type;');
+    const restoredT1 = editSource.indexOf('document.getElementById("loadTemperatureT1").value = load.temperatureT1 ?? 0;');
+    const restoredT2 = editSource.indexOf('document.getElementById("loadTemperatureT2").value = load.temperatureT2 ?? 0;');
+    const refreshFields = editSource.indexOf("toggleLoadTarget();");
+    assert.ok(restoredType >= 0 && restoredT1 > restoredType && restoredT2 > restoredT1,
+        "editLoad should restore load type and both stored face temperatures");
+    assert.ok(refreshFields > restoredT2,
+        "editLoad must refresh conditional visibility after restoring the thermal inputs");
+});
+
