@@ -2139,8 +2139,9 @@ function importModel(event) {
                     if (!item || typeof item !== "object" || !item.data || typeof item.data !== "object") {
                         throw new Error(`Model collection entry ${index + 1} is missing a valid model payload.`);
                     }
-                    item.data = normalizeLegacySelfWeightModel(item.data);
+                    item.data = normalizeLegacySupportMovementAssignments(normalizeLegacySelfWeightModel(item.data));
                     validatePersistedInputModel(item.data);
+                    item.data = normalizeLegacySupportMovementAssignments(item.data, { clearTemplateValues: true });
                     let importName = String(item.name || `Imported Model ${importedCount + 1}`);
                     const fpImport = modelDataFingerprint(item.data);
                     if (fpImport && Object.values(library).some((m) => modelDataFingerprint(m.data) === fpImport)) {
