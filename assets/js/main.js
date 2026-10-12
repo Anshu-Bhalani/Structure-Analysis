@@ -1257,6 +1257,7 @@ function validatePersistedInputModel(source) {
         }
     });
 
+    const gridModel = source.analysisMode === "grid";
     const assignedSupportNodes = new Set();
     collections.supportAssignments.forEach((assignment) => {
         requireReference(assignment.nodeId, nodeIds, `node reference on support assignment '${assignment.id}'`);
@@ -1286,7 +1287,6 @@ function validatePersistedInputModel(source) {
             });
         }
     });
-    const gridModel = source.analysisMode === "grid";
     const getElementLength = (elementId, description) => {
         const element = collections.elements.find((candidate) => String(candidate.id) === String(elementId));
         if (!element) throw new Error(`${description} references unknown element '${elementId}'.`);
