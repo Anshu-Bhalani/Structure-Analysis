@@ -375,8 +375,8 @@ test("temperature gradient with equal face temperatures produces no thermal mome
     const actions = calculatePlaneThermalFixedEndActions(template, {
         type: "Temperature Gradient", temperatureT1: 20, temperatureT2: 20
     }, false);
-    assert.equal(actions[2], 0);
-    assert.equal(actions[5], 0);
+    assert.equal(Math.abs(actions[2]), 0);
+    assert.equal(Math.abs(actions[5]), 0);
 });
 
 test("import accepts a valid uniform thermal load on an explicit Beam", () => {
