@@ -115,7 +115,7 @@ test("E and I stay dimensionally consistent with kN and metres in the stiffness 
     assert.ok(elementSource.includes("I (m⁴)"));
     assert.ok(elementSource.includes("E (GPa)"));
     assert.ok(step3Source.includes("let E = getElementEInternal(tmpl)"));
-    assert.ok(step3Source.includes("I = Number(tmpl.I)"));
+    assert.ok(step3Source.includes("I = tmpl.I"));
     assert.ok(mainSource.includes("function getElementEInternal(template)"));
     assert.ok(mainSource.includes("Number(template.E_GPa) * 1e6"));
 });
