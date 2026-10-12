@@ -13,6 +13,7 @@ const step4Source = fs.readFileSync(path.join(root, "modules/results/step-4/step
 const step5Source = fs.readFileSync(path.join(root, "modules/results/step-5/step-5.js"), "utf8");
 const step6Source = fs.readFileSync(path.join(root, "modules/results/step-6/step-6.js"), "utf8");
 const step7Source = fs.readFileSync(path.join(root, "modules/results/step-7/step-7.js"), "utf8");
+const elementSource = fs.readFileSync(path.join(root, "modules/elements/elements.js"), "utf8");
 
 function section(source, startMarker, endMarker) {
     const start = source.indexOf(startMarker);
@@ -81,6 +82,41 @@ function beamBendingStiffness(E, I, L) {
         [b, d, -b, c]
     ];
 }
+
+const movementUnitHelpersSource = section(
+    supportsSource,
+    "// ---- Prescribed movement unit conversion ----",
+    "\n// ---- Support Assignments (apply a support template to a node) ----"
+);
+const movementUnitHelpers = new Function(
+    movementUnitHelpersSource + "\nreturn { supportMovementInputToModelUnits, supportMovementModelToInputUnits };"
+)();
+
+const elementEHelperSource = section(mainSource, "function getElementEInternal(tmpl) {", "\nfunction migrateUnitSystem()");
+const getElementEInternal = new Function(elementEHelperSource + "\nreturn getElementEInternal;")();
+
+test("support translations are entered in mm but kept internally in metres; rotations stay in radians", () => {
+    for (const field of ["dx", "dy", "dz"]) {
+        near(movementUnitHelpers.supportMovementInputToModelUnits(field, 5), 0.005);
+        near(movementUnitHelpers.supportMovementModelToInputUnits(field, 0.005), 5);
+    }
+    near(movementUnitHelpers.supportMovementInputToModelUnits("tx", 0.01), 0.01);
+    near(movementUnitHelpers.supportMovementModelToInputUnits("tz", -0.02), -0.02);
+    assert.match(supportsSource, /assignmentDispX[^\\n]*input-unit">mm/);
+    assert.match(supportsSource, /assignmentDispY[^\\n]*input-unit">mm/);
+    assert.match(supportsSource, /assignmentDispZ[^\\n]*input-unit">mm/);
+    assert.match(step4Source, /AD entries are kN at translational DOFs and kN·m at rotational DOFs/);
+});
+
+test("E and I stay dimensionally consistent with kN and metres in the stiffness engine", () => {
+    // 1 GPa = 10^6 kN/m²; I is already entered/stored in m⁴ and is not scaled.
+    near(getElementEInternal({ E_GPa: 30 }), 30_000_000);
+    assert.match(elementSource, /I \\(m⁴\\)/);
+    assert.match(elementSource, /E \\(GPa\\)/);
+    assert.match(step3Source, /let E = getElementEInternal\\(tmpl\\)/);
+    assert.match(step3Source, /I = Number\\(tmpl\\.I\\)/);
+    assert.match(mainSource, /function getElementEInternal\\(template\\)[\\s\\S]*?Number\\(template\\.E_GPa\\) \\* 1e6/);
+});
 
 test("AD from a prescribed settlement produces 12EIδ/L³ shears and 6EIδ/L² end actions", () => {
     const E = 30000;
