@@ -126,6 +126,9 @@ test("E is entered, stored, and displayed in kN/m² while old saved units still 
     assert.ok(step3Source.includes("I = tmpl.I"));
     assert.ok(mainSource.includes("if (hasValue(template.E_kN_m2)) return Number(template.E_kN_m2)"));
     assert.ok(mainSource.includes("Number(template.E_GPa) * 1e6"));
+    assert.ok(mainSource.includes('elementTemplates: ["id", "I", "E_kN_m2", "G_GPa", "J", "A"]'));
+    assert.ok(mainSource.includes("if (hasValue(item.E_GPa)) item.E_kN_m2 = Number(item.E_GPa) * 1e6"));
+    assert.ok(mainSource.includes("E_kN_m2: p.E, G_GPa: p.G / 1e6"));
 });
 
 test("legacy element E values migrate to canonical kN/m² once without scaling I", () => {
