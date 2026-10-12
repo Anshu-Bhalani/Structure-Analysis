@@ -26,12 +26,12 @@ const builtInSupportTemplates = [
 ];
 
 const validatorSource = section(mainSource, "function validatePersistedInputModel(source) {", "\nfunction resetAllEditForms()");
-const validate = new Function("AppConfig", "normalizeLegacySelfWeightModel",
+const validate = new Function("AppConfig", "normalizeLegacySelfWeightModel", "normalizeLegacySupportMovementAssignments",
     validatorSource + "\nreturn validatePersistedInputModel;"
 )({
     persistedModelKeys: ["nodes", "elementTemplates", "elements", "supportTemplates", "supportAssignments", "loadCases", "loads", "momentCases", "moments"],
     builtInSupportTemplates
-}, (value) => value);
+}, (value) => value, (value) => value);
 
 function baseModel(mode) {
     const grid = mode === "grid";
@@ -329,12 +329,12 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
     assert.match(openSource, /syncDiagramModeLabels\(\)/);
     assert.ok(openSource.indexOf("syncDiagramModeLabels()") < openSource.indexOf('getElementById("fsModeSelect").value'));
 
-    const version = "v=20261011-grid-my-torsion-refresh";
-    for (const file of [
-        "assets/js/main.js",
-        "modules/results/results.js",
-        "modules/results/diagrams/diagrams.js"
-    ]) {
+    const versionByFile = {
+        "assets/js/main.js": "v=20261012-prescribed-support-AD",
+        "modules/results/results.js": "v=20261011-grid-my-torsion-refresh",
+        "modules/results/diagrams/diagrams.js": "v=20261011-grid-my-torsion-refresh"
+    };
+    for (const [file, version] of Object.entries(versionByFile)) {
         assert.ok(indexSource.includes(file + "?" + version), "missing cache-busted script reference for " + file);
     }
 });
