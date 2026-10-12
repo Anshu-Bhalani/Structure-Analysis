@@ -54,17 +54,6 @@ mountModuleHTML(".container", "beforeend", `
                         <label class="check-item"><input type="checkbox" id="RMz"><span id="supportRMzLabel">RMz</span></label>
                     </div>
                 </div>
-                <div class="restraint-box" style="margin-top:14px;">
-                    <div class="restraint-title">Prescribed Displacements</div>
-                    <div class="grid grid-3">
-                        <div class="field"><label for="dispX" id="supportDispXLabel">Δx</label><div class="input-wrap has-unit"><input id="dispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('dispX')">e</button></div></div>
-                        <div class="field"><label for="dispY" id="supportDispYLabel">Δy</label><div class="input-wrap has-unit"><input id="dispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('dispY')">e</button></div></div>
-                        <div class="field"><label for="dispZ" id="supportDispZLabel">Δz</label><div class="input-wrap has-unit"><input id="dispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('dispZ')">e</button></div></div>
-                        <div class="field"><label for="rotX" id="supportRotXLabel">θx</label><div class="input-wrap has-unit"><input id="rotX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('rotX')">e</button></div></div>
-                        <div class="field"><label for="rotY" id="supportRotYLabel">θy</label><div class="input-wrap has-unit"><input id="rotY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('rotY')">e</button></div></div>
-                        <div class="field"><label for="rotZ" id="supportRotZLabel">θz</label><div class="input-wrap has-unit"><input id="rotZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('rotZ')">e</button></div></div>
-                    </div>
-                </div>
                 <div class="form-footer">
                     <button type="button" class="btn btn-secondary" onclick="resetSupportForm()">Reset</button>
                     <button id="supportTemplateSubmitBtn" type="submit" class="btn btn-primary">Create Custom Support</button>
@@ -80,7 +69,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Support ID</th><th>Description</th><th>Restraints</th><th>Displacement</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Support ID</th><th>Description</th><th>Restraints</th><th>Actions</th></tr></thead>
                     <tbody id="supportTemplateTable"></tbody>
                 </table>
             </div>
@@ -98,6 +87,18 @@ mountModuleHTML(".container", "beforeend", `
                     <div class="field"><label for="supportTemplateSelect">Support Template</label><select id="supportTemplateSelect"><option value="">Select support</option></select></div>
                     <div class="field"><label for="supportNodeSelect">Node ID</label><select id="supportNodeSelect"><option value="">Select node</option></select></div>
                 </div>
+                <div class="restraint-box" style="margin-top:14px;">
+                    <div class="restraint-title">Prescribed Movement at This Node (optional)</div>
+                    <p style="font-size:12px;color:#64748b;line-height:1.5;margin:0 0 12px;">These values apply only to the selected node. A nonzero value requires the selected support template to restrain that degree of freedom.</p>
+                    <div class="grid grid-3">
+                        <div class="field plane-support-movement"><label for="assignmentDispX">Prescribed X displacement (Δx)</label><div class="input-wrap has-unit"><input id="assignmentDispX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispX')">e</button></div></div>
+                        <div class="field plane-support-movement"><label for="assignmentDispY">Prescribed Y displacement (Δy)</label><div class="input-wrap has-unit"><input id="assignmentDispY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispY')">e</button></div></div>
+                        <div class="field plane-support-movement"><label for="assignmentRotZ">Prescribed rotation (θz)</label><div class="input-wrap has-unit"><input id="assignmentRotZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotZ')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentDispZ">Prescribed Grid settlement (ΔZ)</label><div class="input-wrap has-unit"><input id="assignmentDispZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentDispZ')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentRotX">Prescribed rotation (θX)</label><div class="input-wrap has-unit"><input id="assignmentRotX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotX')">e</button></div></div>
+                        <div class="field grid-support-movement" style="display:none"><label for="assignmentRotY">Prescribed rotation (θY)</label><div class="input-wrap has-unit"><input id="assignmentRotY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">rad</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('assignmentRotY')">e</button></div></div>
+                    </div>
+                </div>
                 <div class="form-footer">
                     <button id="supportAssignmentSubmitBtn" type="submit" class="btn btn-primary">Assign Support</button>
                 </div>
@@ -112,7 +113,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Assignment ID</th><th>Support</th><th>Node</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Assignment ID</th><th>Support</th><th>Node</th><th>Prescribed Movement</th><th>Actions</th></tr></thead>
                     <tbody id="supportAssignmentTable"></tbody>
                 </table>
             </div>
@@ -145,12 +146,10 @@ document.getElementById("supportTemplateForm").addEventListener("submit", (e) =>
     const id = val("supportId");
     if (!id) return alert("Support ID is required.");
     if (hasId(model.supportTemplates, id, editingSupportTemplateId)) return alert("Support ID already exists.");
-    const numericSupportValues = [[num("dispX"), "Δx"], [num("dispY"), "Δy"], [num("dispZ"), "Δz"], [num("rotX"), "θx"], [num("rotY"), "θy"], [num("rotZ"), "θz"]];
-    for (const [value, label] of numericSupportValues) { const error = requireFinite(value, label); if (error) return alert(error); }
     const data = {
         id, description: val("supportDescription"), type: "custom", builtIn: false,
         restraints: { RFx: document.getElementById("RFx").checked, RFy: document.getElementById("RFy").checked, RFz: document.getElementById("RFz").checked, RMx: document.getElementById("RMx").checked, RMy: document.getElementById("RMy").checked, RMz: document.getElementById("RMz").checked },
-        displacement: { dx: num("dispX"), dy: num("dispY"), dz: num("dispZ"), tx: num("rotX"), ty: num("rotY"), tz: num("rotZ") },
+        displacement: { ...ZERO_SUPPORT_MOVEMENTS },
     };
     if (editingSupportTemplateId !== null) {
         const updated = updateSupportTemplate(editingSupportTemplateId, data);
@@ -175,12 +174,6 @@ function editSupportTemplate(encodedId) {
     document.getElementById("supportId").value = support.id;
     document.getElementById("supportDescription").value = support.description || "";
     ["RFx","RFy","RFz","RMx","RMy","RMz"].forEach((key) => { document.getElementById(key).checked = !!support.restraints?.[key]; });
-    document.getElementById("dispX").value = support.displacement?.dx ?? 0;
-    document.getElementById("dispY").value = support.displacement?.dy ?? 0;
-    document.getElementById("dispZ").value = support.displacement?.dz ?? 0;
-    document.getElementById("rotX").value = support.displacement?.tx ?? 0;
-    document.getElementById("rotY").value = support.displacement?.ty ?? 0;
-    document.getElementById("rotZ").value = support.displacement?.tz ?? 0;
     document.getElementById("supportTemplateSubmitBtn").textContent = "Update Custom Support";
 }
 function selectBuiltInSupport(id) {
@@ -192,7 +185,7 @@ function selectBuiltInSupport(id) {
 }
 function renderSupportTemplates() {
     const tbody = document.getElementById("supportTemplateTable");
-    if (!model.supportTemplates.length) return showEmpty("supportTemplateTable", 5);
+    if (!model.supportTemplates.length) return showEmpty("supportTemplateTable", 4);
     const gridMode = typeof isGridAnalysisMode === "function" && isGridAnalysisMode();
     const gridRestraintLabels = { RFx: "θX", RFy: "θY", RMz: "ΔZ" };
     const allRestraintLabels = { RFx: "RFx", RFy: "RFy", RFz: "RFz", RMx: "RMx", RMy: "RMy", RMz: "RMz" };
@@ -204,13 +197,9 @@ function renderSupportTemplates() {
         const labels = gridMode ? gridRestraintLabels : allRestraintLabels;
         const r = effective.map((key) => labels[key]).join(", ") || "None";
         const rText = `${escapeHtml(r)}${ignored.length ? `<br><span class="muted">Ignored in Grid: ${escapeHtml(ignored.map((key) => allRestraintLabels[key] || key).join(", "))}</span>` : ""}`;
-        const d = s.displacement || {};
-        const disp = gridMode
-            ? `ΔZ=${escapeHtml(d.dz ?? 0)}<br>θX=${escapeHtml(d.tx ?? 0)} rad, θY=${escapeHtml(d.ty ?? 0)} rad${(Number(d.dx) || Number(d.dy) || Number(d.tz)) ? `<br><span class="muted">Unused in Grid: Δx=${escapeHtml(d.dx ?? 0)}, Δy=${escapeHtml(d.dy ?? 0)}, θz=${escapeHtml(d.tz ?? 0)}</span>` : ""}`
-            : `Δx=${escapeHtml(d.dx ?? 0)}, Δy=${escapeHtml(d.dy ?? 0)}, Δz=${escapeHtml(d.dz ?? 0)}<br>θx=${escapeHtml(d.tx ?? 0)} rad, θy=${escapeHtml(d.ty ?? 0)} rad, θz=${escapeHtml(d.tz ?? 0)} rad`;
         const kind = s.builtIn ? `<span class="badge badge-blue">Built-in</span>` : `<span class="badge badge-gray">Custom</span>`;
         const action = s.builtIn ? `<span class="badge badge-gray">Protected</span>` : `<div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit support template ${escapeHtml(s.id)}" title="Edit support template ${escapeHtml(s.id)}" onclick="editSupportTemplate('${encodeInlineArgument(s.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete support template ${escapeHtml(s.id)}" title="Delete support template ${escapeHtml(s.id)}" onclick="deleteItem('supportTemplates','${encodeInlineArgument(s.id)}','id')">×</button></div>`;
-        return `<tr data-sort-collection="supportTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td>${escapeHtml(s.description)}<br>${kind}</td><td>${rText}</td><td>${disp}</td><td>${action}</td></tr>`;
+        return `<tr data-sort-collection="supportTemplates" data-sort-id="${escapeHtml(encodeInlineArgument(s.id))}"><td>${sortHandle(s.id)}${escapeHtml(s.id)}</td><td>${escapeHtml(s.description)}<br>${kind}</td><td>${rText}</td><td>${action}</td></tr>`;
     }).join("");
 }
 
