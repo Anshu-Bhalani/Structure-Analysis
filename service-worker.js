@@ -3,9 +3,11 @@
 /*
  * Offline app shell for GitHub Pages (including the /Structure-Analysis/ path).
  * Keep this list synchronized with index.html and the web app's local assets.
+ * Increment CACHE_NAME for each offline-shell release so a failed install cannot
+ * partially overwrite the currently active release cache.
  * No model data or calculation results are stored in Cache Storage.
  */
-const CACHE_NAME = "structure-analysis-offline-v1";
+const CACHE_NAME = "structure-analysis-offline-v2";
 const CACHE_PREFIX = "structure-analysis-offline-";
 
 const CORE_ASSETS = [
