@@ -46,12 +46,13 @@ test("every precached asset exists and all local index resources are included", 
     assert.match(indexSource, /service-worker|manifest\.webmanifest/);
 });
 
-test("offline readiness UI registers the Service Worker relative to the site root", () => {
+test("offline support registers silently and adds no visible readiness UI", () => {
     assert.ok(offlineUiSource.includes('new URL("../../", document.currentScript.src)'));
-    assert.match(offlineUiSource, /navigator\.serviceWorker\.register\(workerUrl\.href/);
-    assert.match(offlineUiSource, /GET_OFFLINE_STATUS/);
-    assert.match(offlineUiSource, /Offline ready/);
+    assert.match(offlineUiSource, /navigator\\.serviceWorker\\.register\\(workerUrl\\.href/);
     assert.match(offlineUiSource, /serviceWorker/);
+    assert.doesNotMatch(offlineUiSource, /createElement|offlineReadinessStatus|Offline ready|Preparing offline access/);
+    const mainCss = fs.readFileSync(path.join(root, "assets/css/main.css"), "utf8");
+    assert.doesNotMatch(mainCss, /\\.offline-readiness/);
 });
 
 function createWorkerHarness(fetchImpl) {
