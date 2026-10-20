@@ -48,11 +48,11 @@ test("every precached asset exists and all local index resources are included", 
 
 test("offline support registers silently and adds no visible readiness UI", () => {
     assert.ok(offlineUiSource.includes('new URL("../../", document.currentScript.src)'));
-    assert.match(offlineUiSource, /navigator\\.serviceWorker\\.register\\(workerUrl\\.href/);
+    assert.ok(offlineUiSource.includes("navigator.serviceWorker.register(workerUrl.href"));
     assert.match(offlineUiSource, /serviceWorker/);
     assert.doesNotMatch(offlineUiSource, /createElement|offlineReadinessStatus|Offline ready|Preparing offline access/);
     const mainCss = fs.readFileSync(path.join(root, "assets/css/main.css"), "utf8");
-    assert.doesNotMatch(mainCss, /\\.offline-readiness/);
+    assert.ok(!mainCss.includes(".offline-readiness"));
 });
 
 function createWorkerHarness(fetchImpl) {
