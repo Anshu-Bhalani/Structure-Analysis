@@ -157,7 +157,9 @@ test("Service Worker precaches all declared app assets before activating", async
     await installPromise;
 
     const cacheNames = await harness.caches.keys();
-    assert.deepEqual(cacheNames, ["structure-analysis-offline-v2"]);
+    const configuredCacheName = workerSource.match(/const CACHE_NAME = ["\']([^"\']+)["\'];/)?.[1];
+    assert.ok(configuredCacheName, "Service Worker must declare a cache version");
+    assert.deepEqual(cacheNames, [configuredCacheName]);
     const cache = await harness.caches.open(cacheNames[0]);
     const keys = await cache.keys();
     assert.equal(keys.length, coreAssets.length);
