@@ -50,18 +50,23 @@ button {
 .app {
     display: flex;
     min-height: 100vh;
+    align-items: stretch;
 }
 
 /* SIDEBAR */
+/* The sidebar shares the document's vertical scroll with the main content.
+   Avoid a viewport-height, independently scrollable panel: it can end early on
+   mobile browsers and leaves the menu visually disconnected from long pages. */
 .sidebar {
     width: 260px;
+    flex-shrink: 0;
     background: #111827;
     color: white;
     padding: 22px 14px;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
 }
 
 .brand {
