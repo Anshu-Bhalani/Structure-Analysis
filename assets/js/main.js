@@ -43,6 +43,7 @@ document.body.insertAdjacentHTML("afterbegin", `
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="brand">
+            <img class="brand-logo" src="assets/icons/nirma-emblem.svg" alt="Nirma University emblem">
             <h1>Structure Analysis</h1>
             <p>Input Model Builder</p>
         </div>
@@ -58,6 +59,7 @@ document.body.insertAdjacentHTML("afterbegin", `
             <button class="nav-btn" data-section="momentCases"><span class="nav-icon">↻</span>Moment Cases</button>
             <button class="nav-btn" data-section="moments"><span class="nav-icon">↺</span>Moments</button>
             <button class="nav-btn" data-section="results"><span class="nav-icon">📊</span>Results</button>
+            <button class="nav-btn" data-section="about"><span class="nav-icon">ⓘ</span>About the Project</button>
         </div>
         <div class="sidebar-bottom">
             <button class="sidebar-btn" onclick="exportModel()">Export JSON</button>
@@ -85,6 +87,36 @@ document.body.insertAdjacentHTML("afterbegin", `
         </header>
 
         <div class="container">
+            <section id="about" class="section about-section">
+                <div class="about-hero">
+                    <img src="assets/icons/nirma-emblem.svg" alt="Nirma University emblem" class="about-logo">
+                    <p class="about-eyebrow">PROJECT INFORMATION</p>
+                    <h2>About Structure Analysis</h2>
+                    <p class="about-intro">An educational tool designed to help students build structural models and explore the stiffness method through interactive calculations and diagrams.</p>
+                </div>
+                <div class="about-grid">
+                    <article class="about-card">
+                        <span class="about-card-icon">✦</span>
+                        <h3>Developed by</h3>
+                        <p class="about-primary">Anshu Bhalani</p>
+                        <p class="about-secondary">Project creator and developer</p>
+                    </article>
+                    <article class="about-card">
+                        <span class="about-card-icon">⌂</span>
+                        <h3>Institution</h3>
+                        <p class="about-primary">Nirma University</p>
+                        <p class="about-secondary">Institute of Technology</p>
+                    </article>
+                    <article class="about-card">
+                        <span class="about-card-icon">◎</span>
+                        <h3>Faculty Guidance</h3>
+                        <p class="about-primary">Dr. Digesh Joshi</p>
+                        <p class="about-primary">Dr. Paresh Patel</p>
+                        <p class="about-secondary">Faculty members</p>
+                    </article>
+                </div>
+                <p class="about-note">This project is intended for educational use. Always verify important engineering calculations independently before using them in real-world design.</p>
+            </section>
         </div>
     </main>
 </div>
@@ -187,6 +219,7 @@ const AppConfig = {
         momentCases: ["Moment Cases", "Define reusable moment cases."],
         moments: ["Moments", "Define nodal and element moment inputs."],
         results: ["Analysis Results", "Stiffness Method output."],
+        about: ["About the Project", "Project creator, institution and faculty information."],
     },
 };
 
