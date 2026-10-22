@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="300" viewBox="0 0 256 300" role="img" aria-labelledby="title desc">
+<title id="title">Nirma University emblem</title><desc id="desc">A shield inspired by the Nirma University emblem in red and blue with a sunburst, book, and stylized letters.</desc>
+<path d="M18 12H238V184Q128 294 18 184Z" fill="#fff" stroke="#fff" stroke-width="8"/>
+<path d="M24 18H128V150H24Z" fill="#d92735"/><path d="M128 18H232V150H128Z" fill="#15559a"/>
+<path d="M24 150H128V184Q77 229 24 184Z" fill="#15559a"/><path d="M128 150H232V184Q180 229 128 184Z" fill="#d92735"/>
+<g stroke="#f4d78e" stroke-width="4" stroke-linecap="round">
+<path d="M180 28V76M180 28L157 72M180 28L203 72M156 38L205 62M204 38L156 62M145 51L215 51"/>
+</g>
+<path d="M53 75Q77 61 105 76V119Q78 105 53 119Z" fill="#174c9a"/><path d="M53 75Q77 89 105 76M53 88Q77 102 105 89M53 101Q77 115 105 102" fill="none" stroke="#fff" stroke-width="5"/>
+<text x="76" y="65" font-family="Georgia,serif" font-style="italic" font-weight="bold" font-size="62" fill="#15559a">n</text>
+<text x="142" y="205" font-family="Georgia,serif" font-style="italic" font-weight="bold" font-size="62" fill="#15559a">u</text>
+<path d="M22 242H234" stroke="#c7a76a" stroke-width="3"/><text x="128" y="263" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#334155">NIRMA UNIVERSITY</text><text x="128" y="281" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#64748b">INSTITUTE OF TECHNOLOGY</text>
+</svg>
