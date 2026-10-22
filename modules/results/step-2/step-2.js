@@ -28,12 +28,12 @@ function solveStep2(ctx, step1) {
         }).join("");
         // Display the same Grid member stiffness coefficients used by the Grid
         // formulation. E is already in kN/m²; convert G from GPa to kN/m².
-        const memberRows = members.map((member) => {
-            const L = Number(member.length);
-            const E = Number(member.E_kN_m2);
-            const G = Number(member.G_GPa) * 1e6;
-            const I = Number(member.I);
-            const J = Number(member.J);
+        const memberRows = members.map((m) => {
+            const L = Number(m.length);
+            const E = Number(m.E_kN_m2);
+            const G = Number(m.G_GPa) * 1e6;
+            const I = Number(m.I);
+            const J = Number(m.J);
             const valid = Number.isFinite(L) && L > 0 &&
                 Number.isFinite(E) && E >= 0 &&
                 Number.isFinite(G) && G >= 0 &&
@@ -43,7 +43,7 @@ function solveStep2(ctx, step1) {
             const aTerm = valid ? (12 * E * I) / Math.pow(L, 3) : NaN;
             const bTerm = valid ? (6 * E * I) / Math.pow(L, 2) : NaN;
             const cTerm = valid ? (4 * E * I) / L : NaN;
-            return `<tr><td>${escapeHtml(member.elementId)}</td><td>${escapeHtml(member.startNode)}</td><td>${escapeHtml(member.endNode)}</td><td>${formatNum(L)}</td><td>${formatNum(E)}</td><td>${formatNum(member.G_GPa)}</td><td>${formatNum(I)}</td><td>${formatNum(J)}</td><td>${formatNum(mTerm)}</td><td>${formatNum(aTerm)}</td><td>${formatNum(bTerm)}</td><td>${formatNum(cTerm)}</td></tr>`;
+            return `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(L)}</td><td>${formatNum(E)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(I)}</td><td>${formatNum(J)}</td><td>${formatNum(mTerm)}</td><td>${formatNum(aTerm)}</td><td>${formatNum(bTerm)}</td><td>${formatNum(cTerm)}</td></tr>`;
         }).join("");
         const html = `<div class="calc-step"><h4>Step 2: Grid Joint and Member Properties</h4>
             <h5>Joint Properties</h5><div class="table-wrap" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Joint</th><th>X (m)</th><th>Y (m)</th><th>θX</th><th>θY</th><th>ΔZ</th></tr></thead><tbody>${jointRows}</tbody></table></div>
