@@ -43,7 +43,7 @@ function solveStep2(ctx, step1) {
             const aTerm = valid ? (12 * E * I) / Math.pow(L, 3) : NaN;
             const bTerm = valid ? (6 * E * I) / Math.pow(L, 2) : NaN;
             const cTerm = valid ? (4 * E * I) / L : NaN;
-            return `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(L)}</td><td>${formatNum(E)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(I)}</td><td>${formatNum(J)}</td><td>${formatNum(mTerm)}</td><td>${formatNum(aTerm)}</td><td>${formatNum(bTerm)}</td><td>${formatNum(cTerm)}</td></tr>`;
+            return `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(L)}</td><td>${formatNum(m.E_kN_m2)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(I)}</td><td>${formatNum(J)}</td><td>${formatNum(mTerm)}</td><td>${formatNum(aTerm)}</td><td>${formatNum(bTerm)}</td><td>${formatNum(cTerm)}</td></tr>`;
         }).join("");
         const html = `<div class="calc-step"><h4>Step 2: Grid Joint and Member Properties</h4>
             <h5>Joint Properties</h5><div class="table-wrap" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Joint</th><th>X (m)</th><th>Y (m)</th><th>θX</th><th>θY</th><th>ΔZ</th></tr></thead><tbody>${jointRows}</tbody></table></div>
