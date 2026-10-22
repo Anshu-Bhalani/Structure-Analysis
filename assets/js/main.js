@@ -43,7 +43,7 @@ document.body.insertAdjacentHTML("afterbegin", `
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="brand">
-            <img class="brand-logo" src="assets/icons/nirma-emblem.svg" alt="Nirma University emblem">
+            <img class="brand-logo" src="assets/images/nirma-shield.webp" alt="Nirma University emblem">
             <h1>Structure Analysis</h1>
             <p>Input Model Builder</p>
         </div>
@@ -89,7 +89,7 @@ document.body.insertAdjacentHTML("afterbegin", `
         <div class="container">
             <section id="about" class="section about-section">
                 <div class="about-hero">
-                    <img src="assets/icons/nirma-emblem.svg" alt="Nirma University emblem" class="about-logo">
+                    <img src="assets/images/nirma-university.webp" alt="Nirma University Institute of Technology logo" class="about-logo">
                     <p class="about-eyebrow">PROJECT INFORMATION</p>
                     <h2>About Structure Analysis</h2>
                     <p class="about-intro">An educational tool designed to help students build structural models and explore the stiffness method through interactive calculations and diagrams.</p>
@@ -113,6 +113,13 @@ document.body.insertAdjacentHTML("afterbegin", `
                         <p class="about-primary">Dr. Digesh Joshi</p>
                         <p class="about-primary">Dr. Paresh Patel</p>
                         <p class="about-secondary">Faculty members</p>
+                    </article>
+                    <article class="about-card">
+                        <span class="about-card-icon">⌂</span>
+                        <h3>Academic Details</h3>
+                        <p class="about-primary">Civil Engineering Department</p>
+                        <p class="about-secondary">Course: Advance Structure Mechanism</p>
+                        <p class="about-secondary">Course Code: 3CL102ME24</p>
                     </article>
                 </div>
                 <p class="about-note">This project is intended for educational use. Always verify important engineering calculations independently before using them in real-world design.</p>
