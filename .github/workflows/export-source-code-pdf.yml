@@ -1,0 +1,109 @@
+name: Export Complete Source Code PDF
+
+on:
+  push:
+    branches:
+      - export/full-source-code-pdf
+    paths:
+      - .github/workflows/export-source-code-pdf.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install PDF generator
+        run: python -m pip install reportlab
+
+      - name: Generate complete source PDF
+        run: |
+          cat > /tmp/build_source_pdf.py <<'PY'
+          from pathlib import Path
+          import subprocess
+          from reportlab.lib import colors
+          from reportlab.lib.pagesizes import A4, landscape
+          from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+          from reportlab.lib.enums import TA_LEFT
+          from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Preformatted, PageBreak
+          from reportlab.pdfbase.ttfonts import TTFont
+          from reportlab.pdfbase import pdfmetrics
+          from xml.sax.saxutils import escape
+
+          root = Path(".").resolve()
+          paths = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\\0")
+          paths = sorted(p for p in paths if p and not p.endswith(".pdf"))
+          output = root / "Structure-Analysis-Full-Source-Code.pdf"
+          page = landscape(A4)
+          doc = SimpleDocTemplate(
+              str(output), pagesize=page,
+              rightMargin=22, leftMargin=22, topMargin=28, bottomMargin=28,
+              title="Structure Analysis - Complete Source Code",
+              author="Anshu Bhalani",
+              subject="Complete repository source with original relative paths"
+          )
+          styles = getSampleStyleSheet()
+          title_style = ParagraphStyle("CoverTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, leading=24, alignment=TA_LEFT, textColor=colors.HexColor("#172554"), spaceAfter=12)
+          sub_style = ParagraphStyle("Sub", parent=styles["Normal"], fontName="Helvetica", fontSize=9, leading=13, textColor=colors.HexColor("#475569"))
+          path_style = ParagraphStyle("Path", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=12, textColor=colors.HexColor("#1d4ed8"), spaceBefore=5, spaceAfter=4, keepWithNext=True)
+          code_style = ParagraphStyle("Code", fontName="Courier", fontSize=5.1, leading=6, leftIndent=0, rightIndent=0, spaceAfter=0, splitLongWords=1)
+          story = [
+              Spacer(1, 40),
+              Paragraph("Structure Analysis", title_style),
+              Paragraph("Complete source-code archive in PDF form", styles["Heading2"]),
+              Spacer(1, 10),
+              Paragraph("Repository: Anshu-Bhalani/Structure-Analysis", sub_style),
+              Paragraph("Source revision: main branch at workflow execution time", sub_style),
+              Paragraph(f"Included tracked files: {len(paths)}", sub_style),
+              Paragraph("Every tracked text file is included in path order. Long source lines are visually wrapped to fit the page; the source itself is not edited.", sub_style),
+              Spacer(1, 16),
+              Paragraph("Contents / file order", styles["Heading2"])
+          ]
+          for p in paths:
+              story.append(Paragraph(escape(p), ParagraphStyle("TOC"+str(len(story)), parent=sub_style, fontName="Courier", fontSize=7, leading=8)))
+          story.append(PageBreak())
+          for index, rel in enumerate(paths, 1):
+              path = root / rel
+              if not path.is_file():
+                  continue
+              story.append(Paragraph(f"{index:02d}. {escape(rel)}", path_style))
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  story.append(Preformatted("[Binary or non-UTF-8 file omitted from text rendering]", code_style))
+                  story.append(Spacer(1, 8))
+                  continue
+              # Preserve every character while making long minified lines fit.
+              # Preformatted's lineWrap visually wraps; no source characters are removed.
+              story.append(Preformatted(text if text else "[Empty file]", code_style, maxLineLength=190, newLineChars="\\n"))
+              story.append(Spacer(1, 8))
+          def footer(canvas, doc):
+              canvas.saveState()
+              canvas.setFont("Helvetica", 7)
+              canvas.setFillColor(colors.HexColor("#64748b"))
+              canvas.drawString(22, 14, "Structure Analysis - Complete Source Code")
+              canvas.drawRightString(page[0]-22, 14, f"Page {doc.page}")
+              canvas.restoreState()
+          doc.build(story, onFirstPage=footer, onLaterPages=footer)
+          print(f"Generated {output} ({output.stat().st_size} bytes) from {len(paths)} tracked files")
+          PY
+          python /tmp/build_source_pdf.py
+
+      - name: Publish PDF to export branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin export/full-source-code-pdf
+          git checkout export/full-source-code-pdf
+          git add Structure-Analysis-Full-Source-Code.pdf
+          git commit -m "Add complete source code PDF export"
+          git push origin export/full-source-code-pdf
