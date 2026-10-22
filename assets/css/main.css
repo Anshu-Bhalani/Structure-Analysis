@@ -923,3 +923,36 @@ tr:hover td {
     }
 }
 
+
+
+/* Project identity and About page */
+.brand-logo {
+    display: block;
+    width: 58px;
+    height: 58px;
+    object-fit: contain;
+    margin: 0 0 14px 2px;
+    border-radius: 8px;
+    background: #fff;
+    padding: 4px;
+}
+.about-section { max-width: 1080px; margin: 0 auto; padding: 8px 0 32px; }
+.about-hero {
+    text-align: center;
+    padding: clamp(24px, 5vw, 52px) 24px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 20px;
+    background: linear-gradient(145deg, #fff8e8, #ffffff 62%);
+}
+.about-logo { width: 86px; height: 86px; object-fit: contain; margin-bottom: 16px; }
+.about-eyebrow { color: #b45309; font-size: 12px; font-weight: 800; letter-spacing: 2px; margin: 0 0 10px; }
+.about-hero h2 { color: #111827; font-size: clamp(26px, 4vw, 38px); margin: 0 0 12px; }
+.about-intro { max-width: 680px; margin: 0 auto; color: #475569; line-height: 1.75; }
+.about-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.about-card { background: #fff; border: 1px solid var(--border, #e2e8f0); border-radius: 16px; padding: 24px; min-width: 0; }
+.about-card-icon { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #eff6ff; color: #2563eb; font-size: 22px; }
+.about-card h3 { margin: 16px 0 12px; color: #334155; font-size: 15px; }
+.about-primary { margin: 5px 0; color: #111827; font-weight: 750; font-size: 17px; }
+.about-secondary { color: #64748b; font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
+.about-note { color: #64748b; font-size: 13px; line-height: 1.65; margin: 18px 4px 0; }
+@media (max-width: 760px) { .about-grid { grid-template-columns: 1fr; } .about-card { padding: 20px; } }
