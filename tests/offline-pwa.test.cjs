@@ -46,6 +46,19 @@ test("every precached asset exists and all local index resources are included", 
     assert.match(indexSource, /service-worker|manifest\.webmanifest/);
 });
 
+test("Grid Step 2 displays computed member stiffness terms with consistent units", () => {
+    const step2Source = fs.readFileSync(path.join(root, "modules/results/step-2/step-2.js"), "utf8");
+    assert.match(step2Source, /m = GJ\/L \(kN·m\)/);
+    assert.match(step2Source, /a = 12EI\/L³ \(kN\/m\)/);
+    assert.match(step2Source, /b = 6EI\/L² \(kN\)/);
+    assert.match(step2Source, /c = 4EI\/L \(kN·m\)/);
+    assert.match(step2Source, /Number\(member\.G_GPa\) \* 1e6/);
+    assert.match(step2Source, /const mTerm = valid \? \(G \* J\) \/ L/);
+    assert.match(step2Source, /const aTerm = valid \? \(12 \* E \* I\) \/ Math\.pow\(L, 3\)/);
+    assert.match(step2Source, /const bTerm = valid \? \(6 \* E \* I\) \/ Math\.pow\(L, 2\)/);
+    assert.match(step2Source, /const cTerm = valid \? \(4 \* E \* I\) \/ L/);
+});
+
 test("offline support registers silently and adds no visible readiness UI", () => {
     assert.ok(offlineUiSource.includes('new URL("../../", document.currentScript.src)'));
     assert.ok(offlineUiSource.includes("navigator.serviceWorker.register(workerUrl.href"));
