@@ -52,7 +52,7 @@ test("Grid Step 2 displays computed member stiffness terms with consistent units
     assert.match(step2Source, /a = 12EI\/L³ \(kN\/m\)/);
     assert.match(step2Source, /b = 6EI\/L² \(kN\)/);
     assert.match(step2Source, /c = 4EI\/L \(kN·m\)/);
-    assert.match(step2Source, /Number\(member\.G_GPa\) \* 1e6/);
+    assert.match(step2Source, /Number\\(m\\.G_GPa\\) \\* 1e6/);
     assert.match(step2Source, /const mTerm = valid \? \(G \* J\) \/ L/);
     assert.match(step2Source, /const aTerm = valid \? \(12 \* E \* I\) \/ Math\.pow\(L, 3\)/);
     assert.match(step2Source, /const bTerm = valid \? \(6 \* E \* I\) \/ Math\.pow\(L, 2\)/);
