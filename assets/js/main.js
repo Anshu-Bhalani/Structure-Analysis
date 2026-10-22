@@ -43,7 +43,7 @@ document.body.insertAdjacentHTML("afterbegin", `
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="brand">
-            <img class="brand-logo" src="assets/images/nirma-shield.webp" alt="Nirma University emblem">
+            <img class="brand-logo" src="assets/images/nirma-shield-transparent.webp" alt="Nirma University emblem">
             <h1>Structure Analysis</h1>
             <p>Input Model Builder</p>
         </div>

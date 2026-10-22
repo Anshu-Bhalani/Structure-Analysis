@@ -7,14 +7,14 @@
  * partially overwrite the currently active release cache.
  * No model data or calculation results are stored in Cache Storage.
  */
-const CACHE_NAME = "structure-analysis-offline-v3";
+const CACHE_NAME = "structure-analysis-offline-v4";
 const CACHE_PREFIX = "structure-analysis-offline-";
 
 const CORE_ASSETS = [
     "index.html",
     "manifest.webmanifest",
     "assets/icons/structure-analysis.svg",
-    "assets/images/nirma-shield.webp",
+    "assets/images/nirma-shield-transparent.webp",
     "assets/images/nirma-university.webp",
     "assets/css/main.css",
     "assets/js/main.js",
