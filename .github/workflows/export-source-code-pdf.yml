@@ -38,7 +38,7 @@ jobs:
           from xml.sax.saxutils import escape
 
           root = Path(".").resolve()
-          paths = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\\0")
+          paths = subprocess.check_output(["git", "ls-files"], cwd=root).decode().splitlines()
           paths = sorted(p for p in paths if p and not p.endswith(".pdf"))
           output = root / "Structure-Analysis-Full-Source-Code.pdf"
           page = landscape(A4)
@@ -82,7 +82,7 @@ jobs:
                   continue
               # Preserve every character while making long minified lines fit.
               # Preformatted's lineWrap visually wraps; no source characters are removed.
-              story.append(Preformatted(text if text else "[Empty file]", code_style, maxLineLength=190, newLineChars="\\n"))
+              story.append(Preformatted(text if text else "[Empty file]", code_style, maxLineLength=190))
               story.append(Spacer(1, 8))
           def footer(canvas, doc):
               canvas.saveState()
@@ -100,10 +100,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cp Structure-Analysis-Full-Source-Code.pdf /tmp/Structure-Analysis-Full-Source-Code.pdf
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin export/full-source-code-pdf
           git checkout export/full-source-code-pdf
+          cp /tmp/Structure-Analysis-Full-Source-Code.pdf .
           git add Structure-Analysis-Full-Source-Code.pdf
           git commit -m "Add complete source code PDF export"
           git push origin export/full-source-code-pdf
