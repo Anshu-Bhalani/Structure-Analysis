@@ -104,6 +104,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin export/full-source-code-pdf
+          rm Structure-Analysis-Full-Source-Code.pdf
           git checkout export/full-source-code-pdf
           cp /tmp/Structure-Analysis-Full-Source-Code.pdf .
           git add Structure-Analysis-Full-Source-Code.pdf
