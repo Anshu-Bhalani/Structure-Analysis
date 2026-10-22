@@ -26,11 +26,29 @@ function solveStep2(ctx, step1) {
             const label = (idx) => step1.isRestrained[idx] ? `R (${formatNum(step1.prescribedDisp[idx])})` : `D${idx + 1}`;
             return `<tr><td>${escapeHtml(n.nodeId)}</td><td>${formatNum(n.x)}</td><td>${formatNum(n.y)}</td><td>${label(d.x)}</td><td>${label(d.y)}</td><td>${label(d.z)}</td></tr>`;
         }).join("");
-        const memberRows = members.map((m) => `<tr><td>${escapeHtml(m.elementId)}</td><td>${escapeHtml(m.startNode)}</td><td>${escapeHtml(m.endNode)}</td><td>${formatNum(m.length)}</td><td>${formatNum(m.E_kN_m2)}</td><td>${formatNum(m.G_GPa)}</td><td>${formatNum(m.I)}</td><td>${formatNum(m.J)}</td></tr>`).join("");
+        // Display the same Grid member stiffness coefficients used by the Grid
+        // formulation. E is already in kN/m²; convert G from GPa to kN/m².
+        const memberRows = members.map((member) => {
+            const L = Number(member.length);
+            const E = Number(member.E_kN_m2);
+            const G = Number(member.G_GPa) * 1e6;
+            const I = Number(member.I);
+            const J = Number(member.J);
+            const valid = Number.isFinite(L) && L > 0 &&
+                Number.isFinite(E) && E >= 0 &&
+                Number.isFinite(G) && G >= 0 &&
+                Number.isFinite(I) && I >= 0 &&
+                Number.isFinite(J) && J >= 0;
+            const mTerm = valid ? (G * J) / L : NaN;
+            const aTerm = valid ? (12 * E * I) / Math.pow(L, 3) : NaN;
+            const bTerm = valid ? (6 * E * I) / Math.pow(L, 2) : NaN;
+            const cTerm = valid ? (4 * E * I) / L : NaN;
+            return `<tr><td>${escapeHtml(member.elementId)}</td><td>${escapeHtml(member.startNode)}</td><td>${escapeHtml(member.endNode)}</td><td>${formatNum(L)}</td><td>${formatNum(E)}</td><td>${formatNum(member.G_GPa)}</td><td>${formatNum(I)}</td><td>${formatNum(J)}</td><td>${formatNum(mTerm)}</td><td>${formatNum(aTerm)}</td><td>${formatNum(bTerm)}</td><td>${formatNum(cTerm)}</td></tr>`;
+        }).join("");
         const html = `<div class="calc-step"><h4>Step 2: Grid Joint and Member Properties</h4>
             <h5>Joint Properties</h5><div class="table-wrap" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Joint</th><th>X (m)</th><th>Y (m)</th><th>θX</th><th>θY</th><th>ΔZ</th></tr></thead><tbody>${jointRows}</tbody></table></div>
-            <h5>Member Properties</h5><div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;"><table style="min-width:100%;background:white;"><thead><tr><th>Member</th><th>Start Node</th><th>End Node</th><th>L (m)</th><th>E (kN/m²)</th><th>G (GPa)</th><th>I (m⁴)</th><th>J (m⁴)</th></tr></thead><tbody>${memberRows}</tbody></table></div>
-            <h5>Grid Stiffness Terms</h5><p>Computed from the Grid engine: m = GJ/L, a = 12EI/L³, b = 6EI/L², c = 4EI/L. Grid self-weight, when needed, must be entered directly as a line weight in kN/m.</p></div>`;
+            <h5>Member Properties and Grid Stiffness Terms</h5><div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;overflow-x:auto;"><table style="min-width:1150px;background:white;"><thead><tr><th>Member</th><th>Start Node</th><th>End Node</th><th>L (m)</th><th>E (kN/m²)</th><th>G (GPa)</th><th>I (m⁴)</th><th>J (m⁴)</th><th>m = GJ/L (kN·m)</th><th>a = 12EI/L³ (kN/m)</th><th>b = 6EI/L² (kN)</th><th>c = 4EI/L (kN·m)</th></tr></thead><tbody>${memberRows}</tbody></table></div>
+            <p>Grid self-weight, when needed, must be entered directly as a line weight in kN/m.</p></div>`;
         return { html };
     }
     const { dofMap, isRestrained, prescribedDisp, heavyModel } = step1;
