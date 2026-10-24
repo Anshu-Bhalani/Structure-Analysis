@@ -2278,13 +2278,36 @@ function getCurrentDeformationScale() {
 const FS_ELEMENT_LABEL_DEFAULTS = ["id", "inertia"];
 let fsElementLabelKeys = [...FS_ELEMENT_LABEL_DEFAULTS];
 
+function syncElementLabelPickerMode() {
+    const grid = isGridAnalysisMode();
+    document.querySelectorAll("#fsLabelOptions .fs-label-area-option").forEach((item) => {
+        item.hidden = grid;
+    });
+    document.querySelectorAll("#fsLabelOptions .fs-label-grid-option").forEach((item) => {
+        item.hidden = !grid;
+    });
+    // Remove unsupported properties from the active selection as well as hiding
+    // them, so switching structure types never leaves stale labels selected.
+    fsElementLabelKeys = fsElementLabelKeys.filter((key) =>
+        grid ? key !== "area" : key !== "torsion" && key !== "shear"
+    );
+    const options = document.getElementById("fsLabelOptions");
+    if (options) options.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        if (input.value === "area" && grid) input.checked = false;
+        if ((input.value === "torsion" || input.value === "shear") && !grid) input.checked = false;
+    });
+}
+
 function initElementLabelPicker() {
     const root = document.getElementById("fsLabelPicker");
-    if (!root || root.dataset.initialized === "true") return;
+    if (!root) return;
+    syncElementLabelPickerMode();
+    if (root.dataset.initialized === "true") return;
     root.dataset.initialized = "true";
     const toggle = document.getElementById("fsLabelToggle");
     const options = document.getElementById("fsLabelOptions");
     toggle.addEventListener("click", () => {
+        syncElementLabelPickerMode();
         const open = options.hidden;
         options.hidden = !open;
         toggle.setAttribute("aria-expanded", String(open));
@@ -2292,7 +2315,10 @@ function initElementLabelPicker() {
     options.querySelectorAll('input[type="checkbox"]').forEach((input) => {
         input.checked = fsElementLabelKeys.includes(input.value);
         input.addEventListener("change", () => {
-            fsElementLabelKeys = Array.from(options.querySelectorAll('input[type="checkbox"]:checked')).map((item) => item.value);
+            syncElementLabelPickerMode();
+            fsElementLabelKeys = Array.from(options.querySelectorAll('input[type="checkbox"]:checked'))
+                .map((item) => item.value);
+            syncElementLabelPickerMode();
             if (typeof drawDiagramSVG === "function") drawDiagramSVG("fsSVG", "model");
         });
     });
@@ -2304,6 +2330,7 @@ if (document.readyState === "loading") {
 }
 
 function getSelectedElementLabelText(el, n1, n2) {
+    syncElementLabelPickerMode();
     const grid = isGridAnalysisMode();
     const tmpl = (model.elementTemplates || []).find((t) => String(t.id) === String(el.templateId));
     const length = n1 && n2 ? Math.hypot(Number(n2.x) - Number(n1.x), Number(n2.y) - Number(n1.y)) : NaN;
