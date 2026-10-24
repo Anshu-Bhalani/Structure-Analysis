@@ -214,8 +214,16 @@ function editNode(encodedId) {
 
 function syncNodeCoordinateMode() {
     const mode = document.getElementById("nodeCoordinateMode")?.value || "cartesian";
-    document.querySelectorAll(".node-cartesian-field").forEach((field) => { field.hidden = mode !== "cartesian"; });
-    document.querySelectorAll(".node-polar-field").forEach((field) => { field.hidden = mode !== "polar"; });
+    // The shared .field CSS sets display:grid, which can override the browser's
+    // default [hidden] styling. Set display explicitly so only the chosen mode appears.
+    document.querySelectorAll(".node-cartesian-field").forEach((field) => {
+        field.hidden = mode !== "cartesian";
+        field.style.display = mode === "cartesian" ? "" : "none";
+    });
+    document.querySelectorAll(".node-polar-field").forEach((field) => {
+        field.hidden = mode !== "polar";
+        field.style.display = mode === "polar" ? "" : "none";
+    });
 }
 document.getElementById("nodeCoordinateMode").addEventListener("change", syncNodeCoordinateMode);
 syncNodeCoordinateMode();
