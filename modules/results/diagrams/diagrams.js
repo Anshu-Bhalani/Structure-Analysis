@@ -873,11 +873,14 @@ function getStructureSVG(width, height, camera, mode = "model") {
             if (mode === "model" && !isGridAnalysisMode()) {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
-                // Keep the label anchor at the exact member midpoint. Any offset
-                // based on stroke width is magnified when the model is zoomed.
+                // Rotate the label with the member in screen coordinates. Normalize
+                // the angle so labels remain readable rather than upside down.
+                let labelAngle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                if (labelAngle > 90) labelAngle -= 180;
+                if (labelAngle < -90) labelAngle += 180;
                 const labelText = getSelectedElementLabelText(el, n1, n2);
                 if (labelText) {
-                    svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" dy="1.5px" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                    svg += `<g class="fs-element-property-label" pointer-events="none" transform="rotate(${labelAngle.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)})"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" dy="1.5px" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
                 }
             }
         }

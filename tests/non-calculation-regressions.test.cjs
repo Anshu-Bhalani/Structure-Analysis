@@ -358,7 +358,7 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
         "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
         "modules/results/step-3/step-3.js": "v=20261012-thermal-AT-v1",
         "modules/results/step-4/step-4.js": "v=20261012-thermal-AT-v1",
-        "modules/results/diagrams/diagrams.js": "v=20261024-element-label-toggle",
+        "modules/results/diagrams/diagrams.js": "v=20261024-rotated-model-element-labels",
         "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
     for (const [file, version] of Object.entries(versionByFile)) {
@@ -485,4 +485,17 @@ test("element ID labels respect the Element ID checkbox and disappear when all l
     assert.doesNotMatch(labelSource, /return \[String\(el\.id\), \.\.\.selected\]/);
     assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="fs-element-property-label"/);
     assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="grid-member-id"/);
+});
+
+
+test("structural model element labels rotate with member angle and stay upright", () => {
+    const modelLabelBlock = section(
+        diagramsForDiagramLabelsSource,
+        'if (mode === "model" && !isGridAnalysisMode()) {',
+        "\n        }\n    });"
+    );
+    assert.match(modelLabelBlock, /Math\.atan2\(y2 - y1, x2 - x1\)/);
+    assert.match(modelLabelBlock, /if \(labelAngle > 90\) labelAngle -= 180;/);
+    assert.match(modelLabelBlock, /if \(labelAngle < -90\) labelAngle \+= 180;/);
+    assert.match(modelLabelBlock, /transform="rotate\(\$\{labelAngle\.toFixed\(2\)\} \$\{midX\.toFixed\(2\)\} \$\{midY\.toFixed\(2\)\}\)"/);
 });
