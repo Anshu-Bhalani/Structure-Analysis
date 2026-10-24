@@ -2593,7 +2593,12 @@ function drawDiagramSVG(containerId, mode) {
             if (typeof textNode.getBBox !== "function") return;
             const bounds = textNode.getBBox();
             if (!Number.isFinite(bounds.y) || !Number.isFinite(bounds.height) || bounds.height <= 0) return;
-            const targetCenterY = textNode.closest(".grid-member-id") ? 0 : Number(textNode.getAttribute("y"));
+            const isGridMemberId = Boolean(textNode.closest(".grid-member-id"));
+            // For horizontal element labels, position the glyph's top edge 0.5 SVG units
+            // below the blue member line's top edge (9-unit stroke: centerY - 4.5).
+            const targetCenterY = isGridMemberId
+                ? 0
+                : Number(textNode.getAttribute("y")) - 4.5 + 0.5 + bounds.height / 2;
             if (!Number.isFinite(targetCenterY)) return;
             const currentDy = Number.parseFloat(textNode.getAttribute("dy") || "0") || 0;
             const measuredCenterY = bounds.y + bounds.height / 2;
