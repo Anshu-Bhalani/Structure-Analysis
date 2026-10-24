@@ -522,3 +522,21 @@
     .model-select-actions { width: 100%; }
     .model-select-actions .btn { flex: 1 1 0; }
 }
+
+
+/* Official university logo in the standalone Home header */
+.home-brand-logo {
+    display: block;
+    width: clamp(150px, 22vw, 230px);
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    flex: 0 1 auto;
+    border-radius: 4px;
+}
+
+@media (max-width: 800px) {
+    .home-brand-logo {
+        width: min(210px, 72vw);
+    }
+}
