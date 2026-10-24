@@ -476,3 +476,13 @@ test("editing a saved temperature-gradient load restores and reveals both T1/T2 
         "editLoad must refresh conditional visibility after restoring the thermal inputs");
 });
 
+
+
+test("element ID labels respect the Element ID checkbox and disappear when all labels are unchecked", () => {
+    const labelSource = section(diagramsForDiagramLabelsSource, "function getSelectedElementLabelText(el, n1, n2) {", "\nfunction buildElementPropertiesLegendRows()");
+    assert.match(labelSource, /const labelValues = \{ id: String\(el\.id\), \.\.\.values \};/);
+    assert.match(labelSource, /filter\(\(key\) => allowed\.includes\(key\) && labelValues\[key\]\)/);
+    assert.doesNotMatch(labelSource, /return \[String\(el\.id\), \.\.\.selected\]/);
+    assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="fs-element-property-label"/);
+    assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="grid-member-id"/);
+});
