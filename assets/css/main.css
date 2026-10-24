@@ -967,3 +967,13 @@ tr:hover td {
     color: #cbd5e1;
     overflow-wrap: anywhere;
 }
+
+
+/* The About page contains project credits only, not model workspace controls. */
+.app.about-mode .topbar .top-actions {
+    display: none !important;
+}
+
+.app.about-mode #liveModelDiagramCard {
+    display: none !important;
+}
