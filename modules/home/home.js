@@ -10,7 +10,7 @@ mountModuleHTML(".container", "beforeend", `
 <section class="section active" id="home">
     <div class="home-standalone-head">
         <div class="home-brand">
-            <img class="home-brand-logo" src="assets/images/nirma-university.webp" alt="Nirma University Institute of Technology logo">
+            <img class="home-brand-logo" src="assets/images/nirma-shield-transparent.webp" alt="Nirma University emblem">
             <div class="home-brand-text">
                 <h1>Structure Analysis</h1>
                 <p>Structural Analysis Model Manager</p>
