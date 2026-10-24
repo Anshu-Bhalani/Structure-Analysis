@@ -864,11 +864,12 @@ function getStructureSVG(width, height, camera, mode = "model") {
                 x2 = tx(n2.x),
                 y2 = ty(n2.y);
             const elementStrokeWidth = mode === "model" ? 9 : 3;
+            // Every structural member gets the same invisible hit target so the
+            // fullscreen highlight tool can select it in every diagram mode.
             if (isInternalActionMode) {
-                // Clickable member: a wide invisible hit-line makes thin members easy to tap.
                 svg += `<g class="sf-member" data-member="${ei}" data-start="${escapeHtml(String(el.startNode))}" data-end="${escapeHtml(String(el.endNode))}"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(0,0,0,0)" stroke-width="16" pointer-events="stroke"/><line class="sf-member-line" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${elStroke}" stroke-width="${elementStrokeWidth}"/></g>`;
             } else {
-                svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${elStroke}" stroke-width="${elementStrokeWidth}"/>`;
+                svg += `<g class="sf-member" data-member="${ei}" data-start="${escapeHtml(String(el.startNode))}" data-end="${escapeHtml(String(el.endNode))}"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(0,0,0,0)" stroke-width="16" pointer-events="stroke"/><line class="sf-member-line" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${elStroke}" stroke-width="${elementStrokeWidth}"/></g>`;
             }
             if (mode === "model" && !isGridAnalysisMode()) {
                 const midX = (x1 + x2) / 2;
