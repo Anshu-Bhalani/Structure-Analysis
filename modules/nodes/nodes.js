@@ -16,9 +16,11 @@ mountModuleHTML(".container", "beforeend", `
             <form id="nodeForm">
                 <div class="grid grid-4">
                     <div class="field"><label for="nodeId">Node ID</label><input id="nodeId" placeholder="N1" value="N1"></div>
-                    <div class="field"><label for="nodeX">X Coordinate</label><div class="input-wrap has-unit"><input id="nodeX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeX')">e</button></div></div>
-                    <div class="field"><label for="nodeY">Y Coordinate</label><div class="input-wrap has-unit"><input id="nodeY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeY')">e</button></div></div>
-                    <div class="field plane-only-property"><label for="nodeZ">Z Coordinate (unused in 2D analysis)</label><div class="input-wrap has-unit"><input id="nodeZ" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeZ')">e</button></div></div>
+                    <div class="field"><label for="nodeCoordinateMode">Coordinate Input</label><select id="nodeCoordinateMode"><option value="cartesian">X / Y coordinates</option><option value="polar">Length + angle</option></select></div>
+                    <div class="field node-cartesian-field"><label for="nodeX">X Coordinate</label><div class="input-wrap has-unit"><input id="nodeX" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeX')">e</button></div></div>
+                    <div class="field node-cartesian-field"><label for="nodeY">Y Coordinate</label><div class="input-wrap has-unit"><input id="nodeY" type="text" inputmode="decimal" placeholder="0" value="0"><span class="input-unit">m</span></div><div class="length-chip-row scientific-shortcut-row"><button type="button" class="scientific-chip" onclick="insertScientificExponent('nodeY')">e</button></div></div>
+                    <div class="field node-polar-field" hidden><label for="nodeLength">Distance from global origin</label><div class="input-wrap has-unit"><input id="nodeLength" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="0"><span class="input-unit">m</span></div></div>
+                    <div class="field node-polar-field" hidden><label for="nodeAngle">Angle from global +X axis</label><div class="input-wrap has-unit"><input id="nodeAngle" type="number" inputmode="decimal" step="any" placeholder="0" value="0"><span class="input-unit">°</span></div><small>Counter-clockwise positive; clockwise negative. X = r cos θ, Y = r sin θ.</small></div>
                 </div>
                 <div class="form-footer">
                     <button type="button" class="btn btn-secondary" onclick="resetNodeForm()">Reset</button>
@@ -36,7 +38,7 @@ mountModuleHTML(".container", "beforeend", `
         <div class="card-body">
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Node ID</th><th>X (m)</th><th>Y (m)</th><th class="plane-only-property">Z (m)</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Node ID</th><th>X (m)</th><th>Y (m)</th><th>Actions</th></tr></thead>
                     <tbody id="nodeTable"></tbody>
                 </table>
             </div>
@@ -131,7 +133,22 @@ function updateNode(existingId, id, x, y, z) {
 document.getElementById("nodeForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const id = val("nodeId");
-    const x = num("nodeX"), y = num("nodeY"), z = isGridAnalysisMode() ? 0 : num("nodeZ");
+    let x, y;
+    if (document.getElementById("nodeCoordinateMode").value === "polar") {
+        const radius = num("nodeLength");
+        const angleDegrees = num("nodeAngle");
+        if (!Number.isFinite(radius) || radius < 0) return alert("Distance must be a finite, non-negative value.");
+        if (!Number.isFinite(angleDegrees)) return alert("Angle must be a finite value in degrees.");
+        const angleRadians = angleDegrees * Math.PI / 180;
+        x = radius * Math.cos(angleRadians);
+        y = radius * Math.sin(angleRadians);
+        if (Math.abs(x) < 1e-12) x = 0;
+        if (Math.abs(y) < 1e-12) y = 0;
+    } else {
+        x = num("nodeX");
+        y = num("nodeY");
+    }
+    const z = 0;
     const validationError = validateNodeInput(id, x, y, z, editingNodeId);
     if (validationError) return alert(validationError);
 
@@ -164,16 +181,17 @@ function resetNodeForm() {
     document.getElementById("nodeForm").reset();
     editingNodeId = null;
     document.getElementById("nodeSubmitBtn").textContent = "Create Node";
+    syncNodeCoordinateMode();
 }
 function renderNodes() {
     const tbody = document.getElementById("nodeTable");
     const search = val("nodeSearch").toLowerCase();
     const rows = model.nodes.filter((n) => n.id.toLowerCase().includes(search));
-    if (!rows.length) return showEmpty("nodeTable", 5);
+    if (!rows.length) return showEmpty("nodeTable", 4);
     tbody.innerHTML = rows
         .map(
             (n) =>
-                `<tr data-sort-collection="nodes" data-sort-id="${escapeHtml(encodeInlineArgument(n.id))}"><td>${sortHandle(n.id)}<span class="badge badge-blue">${escapeHtml(n.id)}</span></td><td>${escapeHtml(n.x)}</td><td>${escapeHtml(n.y)}</td><td class="plane-only-property" style="display:${isGridAnalysisMode() ? "none" : "table-cell"}">${escapeHtml(n.z ?? 0)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit node ${escapeHtml(n.id)}" title="Edit node ${escapeHtml(n.id)}" onclick="editNode('${encodeInlineArgument(n.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete node ${escapeHtml(n.id)}" title="Delete node ${escapeHtml(n.id)}" onclick="deleteItem('nodes','${encodeInlineArgument(n.id)}','id')">×</button></div></td></tr>`,
+                `<tr data-sort-collection="nodes" data-sort-id="${escapeHtml(encodeInlineArgument(n.id))}"><td>${sortHandle(n.id)}<span class="badge badge-blue">${escapeHtml(n.id)}</span></td><td>${escapeHtml(n.x)}</td><td>${escapeHtml(n.y)}</td><td><div class="table-actions"><button type="button" class="icon-btn" aria-label="Edit node ${escapeHtml(n.id)}" title="Edit node ${escapeHtml(n.id)}" onclick="editNode('${encodeInlineArgument(n.id)}')">✎</button><button type="button" class="icon-btn" aria-label="Delete node ${escapeHtml(n.id)}" title="Delete node ${escapeHtml(n.id)}" onclick="deleteItem('nodes','${encodeInlineArgument(n.id)}','id')">×</button></div></td></tr>`,
         )
         .join("");
 }
@@ -186,6 +204,18 @@ function editNode(encodedId) {
     document.getElementById("nodeId").value = node.id;
     document.getElementById("nodeX").value = node.x;
     document.getElementById("nodeY").value = node.y;
-    document.getElementById("nodeZ").value = node.z;
+    document.getElementById("nodeCoordinateMode").value = "cartesian";
+    document.getElementById("nodeX").value = node.x;
+    document.getElementById("nodeY").value = node.y;
+    syncNodeCoordinateMode();
     document.getElementById("nodeSubmitBtn").textContent = "Update Node";
 }
+
+
+function syncNodeCoordinateMode() {
+    const mode = document.getElementById("nodeCoordinateMode")?.value || "cartesian";
+    document.querySelectorAll(".node-cartesian-field").forEach((field) => { field.hidden = mode !== "cartesian"; });
+    document.querySelectorAll(".node-polar-field").forEach((field) => { field.hidden = mode !== "polar"; });
+}
+document.getElementById("nodeCoordinateMode").addEventListener("change", syncNodeCoordinateMode);
+syncNodeCoordinateMode();

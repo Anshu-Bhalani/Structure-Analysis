@@ -7,7 +7,7 @@
  * partially overwrite the currently active release cache.
  * No model data or calculation results are stored in Cache Storage.
  */
-const CACHE_NAME = "structure-analysis-offline-v8";
+const CACHE_NAME = "structure-analysis-offline-v9";
 const CACHE_PREFIX = "structure-analysis-offline-";
 
 const CORE_ASSETS = [
