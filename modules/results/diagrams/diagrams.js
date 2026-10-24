@@ -88,6 +88,19 @@ mountModuleHTML(".app", "afterend", `
             <button type="button" class="fs-nav-btn" id="fsNavHighlightBtn" data-tool="highlight" aria-pressed="false" title="Member Highlight (click / tap a member)" aria-label="Member Highlight toggle">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/><circle cx="4" cy="20" r="2" fill="currentColor"/><circle cx="20" cy="4" r="2" fill="currentColor"/><line x1="4" y1="4" x2="9" y2="4" opacity="0.5"/><line x1="15" y1="20" x2="20" y2="20" opacity="0.5"/></svg>
             </button>
+            <div class="fs-label-picker" id="fsLabelPicker">
+                <button type="button" class="fs-nav-btn fs-label-toggle" id="fsLabelToggle" aria-expanded="false" aria-controls="fsLabelOptions" title="Choose element labels">Labels ▾</button>
+                <div class="fs-label-options" id="fsLabelOptions" hidden>
+                    <strong>Show on elements</strong>
+                    <label><input type="checkbox" value="id" checked> Element ID</label>
+                    <label><input type="checkbox" value="length"> Length (m)</label>
+                    <label class="fs-label-area-option"><input type="checkbox" value="area"> Area A (m²)</label>
+                    <label><input type="checkbox" value="inertia" checked> Inertia I (m⁴)</label>
+                    <label class="fs-label-grid-option"><input type="checkbox" value="torsion"> Torsion constant J (m⁴)</label>
+                    <label><input type="checkbox" value="elasticity"> Elastic modulus E</label>
+                    <label class="fs-label-grid-option"><input type="checkbox" value="shear"> Shear modulus G</label>
+                </div>
+            </div>
         </div>
         <div id="fsSVG"></div>
     </div>
@@ -2272,6 +2285,34 @@ function getCurrentDeformationScale() {
 
 // Legend of the structure (model) diagram: one row per element with its ID and
 // section / material properties (same values and units as the Step 2 member table).
+const FS_ELEMENT_LABEL_DEFAULTS = ["id", "inertia"];
+let fsElementLabelKeys = [...FS_ELEMENT_LABEL_DEFAULTS];
+
+function initElementLabelPicker() {
+    const root = document.getElementById("fsLabelPicker");
+    if (!root || root.dataset.initialized === "true") return;
+    root.dataset.initialized = "true";
+    const toggle = document.getElementById("fsLabelToggle");
+    const options = document.getElementById("fsLabelOptions");
+    toggle.addEventListener("click", () => {
+        const open = options.hidden;
+        options.hidden = !open;
+        toggle.setAttribute("aria-expanded", String(open));
+    });
+    options.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.checked = fsElementLabelKeys.includes(input.value);
+        input.addEventListener("change", () => {
+            fsElementLabelKeys = Array.from(options.querySelectorAll('input[type="checkbox"]:checked')).map((item) => item.value);
+            if (typeof drawDiagramSVG === "function") drawDiagramSVG("fsSVG", "model");
+        });
+    });
+}
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initElementLabelPicker, { once: true });
+} else {
+    initElementLabelPicker();
+}
+
 function buildElementPropertiesLegendRows() {
     const grid = isGridAnalysisMode();
     return (model.elements || []).map((el) => {
@@ -2324,6 +2365,9 @@ function buildResultDiagramLegend(mode, deformationScale = 1) {
         `<span style="display:inline-block;width:24px;height:4px;background:${color};border-radius:2px;vertical-align:middle;margin-right:6px"></span>${label}`;
 
     if (mode === 'model') {
+        // Element properties are now selected from the fullscreen toolbar and
+        // rendered alongside each member, not in a fixed bottom table.
+        return '';
         const rows = buildElementPropertiesLegendRows();
         if (!rows.length) return '';
         const grid = isGridAnalysisMode();
