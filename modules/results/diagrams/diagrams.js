@@ -876,7 +876,9 @@ function getStructureSVG(width, height, camera, mode = "model") {
                 // Keep the label anchor at the exact member midpoint. Any offset
                 // based on stroke width is magnified when the model is zoomed.
                 const labelText = getSelectedElementLabelText(el, n1, n2);
-                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" dy="1.5px" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                if (labelText) {
+                    svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" dy="1.5px" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                }
             }
         }
     });
@@ -1199,7 +1201,9 @@ function getStructureSVG(width, height, camera, mode = "model") {
                     if (angle > 90) angle -= 180;
                     if (angle < -90) angle += 180;
                     const labelText = getSelectedElementLabelText(el, n1, n2);
-                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
+                    if (labelText) {
+                        svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
+                    }
                 });
             }
         }
@@ -2345,9 +2349,14 @@ function getSelectedElementLabelText(el, n1, n2) {
         elasticity: `E=${tmpl ? fmt(getElementEInternal(tmpl)) : "—"}`,
         shear: `G=${tmpl ? fmt(tmpl.G_GPa !== undefined && tmpl.G_GPa !== "" ? tmpl.G_GPa : Number(tmpl.G) / 1e9) : "—"} GPa`
     };
-    const allowed = grid ? ["length", "inertia", "torsion", "elasticity", "shear"] : ["length", "area", "inertia", "elasticity"];
-    const selected = fsElementLabelKeys.filter((key) => allowed.includes(key) && values[key]).map((key) => values[key]);
-    return [String(el.id), ...selected].join(" · ");
+    const allowed = grid
+        ? ["id", "length", "inertia", "torsion", "elasticity", "shear"]
+        : ["id", "length", "area", "inertia", "elasticity"];
+    const labelValues = { id: String(el.id), ...values };
+    return fsElementLabelKeys
+        .filter((key) => allowed.includes(key) && labelValues[key])
+        .map((key) => labelValues[key])
+        .join(" · ");
 }
 
 function buildElementPropertiesLegendRows() {
