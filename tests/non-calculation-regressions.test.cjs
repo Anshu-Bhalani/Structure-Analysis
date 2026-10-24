@@ -507,7 +507,7 @@ test("member highlight hit targets are present in structural, reaction, displace
     assert.match(memberLoop, /mode === "afd" \|\| mode === "sfd" \|\| mode === "bmd"/);
     assert.match(memberLoop, /data-start="\$\{escapeHtml\(String\(el\.startNode\)\)\}"/);
     assert.match(memberLoop, /data-end="\$\{escapeHtml\(String\(el\.endNode\)\)\}"/);
-    const dofSource = section(diagramsForDiagramLabelsSource, "function getDoFDiagramSVG", "\nfunction");
+    const dofSource = section(diagramsForDiagramLabelsSource, "function getDoFDiagramSVG", "\nfunction renderDOFDiagram");
     assert.match(dofSource, /class="sf-member" data-member="\$\{index\}"/);
     const focusSource = section(diagramsForDiagramLabelsSource, "function applyMemberFocus(root) {", "function handleMemberFocusTap(target)");
     assert.match(focusSource, /svg\.querySelector\("\.sf-member"\)/);
