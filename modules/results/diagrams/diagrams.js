@@ -873,14 +873,8 @@ function getStructureSVG(width, height, camera, mode = "model") {
             if (mode === "model") {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
-                const lines = getSelectedElementLabelLines(el, n1, n2);
-                if (lines.length) {
-                    const lineHeight = 9;
-                    const startY = -((lines.length - 1) * lineHeight) / 2;
-                    svg += `<g class="fs-element-property-label" pointer-events="none">${lines.map((line, index) =>
-                        `<text x="${midX.toFixed(2)}" y="${(midY + startY + index * lineHeight).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(line)}</text>`
-                    ).join("")}</g>`;
-                }
+                const labelText = getSelectedElementLabelText(el, n1, n2);
+                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
             }
         }
     });
@@ -1202,10 +1196,8 @@ function getStructureSVG(width, height, camera, mode = "model") {
                     let angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
                     if (angle > 90) angle -= 180;
                     if (angle < -90) angle += 180;
-                    const labelLines = getSelectedElementLabelLines(el, n1, n2);
-                    const lineHeight = 9;
-                    const firstY = -((labelLines.length - 1) * lineHeight) / 2;
-                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})">${labelLines.map((line, index) => `<text x="0" y="${(firstY + index * lineHeight).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(line)}</text>`).join("")}</g>`;
+                    const labelText = getSelectedElementLabelText(el, n1, n2);
+                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
                 });
             }
         }
@@ -2311,13 +2303,12 @@ if (document.readyState === "loading") {
     initElementLabelPicker();
 }
 
-function getSelectedElementLabelLines(el, n1, n2) {
+function getSelectedElementLabelText(el, n1, n2) {
     const grid = isGridAnalysisMode();
     const tmpl = (model.elementTemplates || []).find((t) => String(t.id) === String(el.templateId));
     const length = n1 && n2 ? Math.hypot(Number(n2.x) - Number(n1.x), Number(n2.y) - Number(n1.y)) : NaN;
     const fmt = (v) => Number.isFinite(Number(v)) ? formatNum(Number(v)) : "—";
     const values = {
-        id: String(el.id),
         length: `L=${fmt(length)} m`,
         area: `A=${tmpl ? fmt(tmpl.A) : "—"} m²`,
         inertia: `I=${tmpl ? fmt(tmpl.I) : "—"} m⁴`,
@@ -2325,9 +2316,9 @@ function getSelectedElementLabelLines(el, n1, n2) {
         elasticity: `E=${tmpl ? fmt(getElementEInternal(tmpl)) : "—"}`,
         shear: `G=${tmpl ? fmt(tmpl.G_GPa !== undefined && tmpl.G_GPa !== "" ? tmpl.G_GPa : Number(tmpl.G) / 1e9) : "—"} GPa`
     };
-    return fsElementLabelKeys
-        .filter((key) => key === "id" || (grid ? ["length", "inertia", "torsion", "elasticity", "shear"].includes(key) : ["length", "area", "inertia", "elasticity"].includes(key)))
-        .map((key) => values[key]);
+    const allowed = grid ? ["length", "inertia", "torsion", "elasticity", "shear"] : ["length", "area", "inertia", "elasticity"];
+    const selected = fsElementLabelKeys.filter((key) => allowed.includes(key) && values[key]).map((key) => values[key]);
+    return [String(el.id), ...selected].join(" · ");
 }
 
 function buildElementPropertiesLegendRows() {
