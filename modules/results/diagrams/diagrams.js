@@ -2586,6 +2586,23 @@ function drawDiagramSVG(containerId, mode) {
         : getStructureSVG(renderWidth, renderHeight, camera, mode);
     const legendScale = mode === 'displacement' ? getCurrentDeformationScale() : 1;
     container.insertAdjacentHTML('beforeend', buildResultDiagramLegend(mode, legendScale));
+    // Center measured SVG glyph bounds on the member midpoint; this avoids font-baseline
+    // guesses and remains stable when the diagram is zoomed.
+    if (mode === "model") {
+        container.querySelectorAll(".fs-element-property-label text, .grid-member-id text").forEach((textNode) => {
+            if (typeof textNode.getBBox !== "function") return;
+            const bounds = textNode.getBBox();
+            if (!Number.isFinite(bounds.y) || !Number.isFinite(bounds.height) || bounds.height <= 0) return;
+            const targetCenterY = textNode.closest(".grid-member-id") ? 0 : Number(textNode.getAttribute("y"));
+            if (!Number.isFinite(targetCenterY)) return;
+            const currentDy = Number.parseFloat(textNode.getAttribute("dy") || "0") || 0;
+            const measuredCenterY = bounds.y + bounds.height / 2;
+            const correction = targetCenterY - measuredCenterY;
+            if (Number.isFinite(correction) && Math.abs(correction) > 0.001) {
+                textNode.setAttribute("dy", String(currentDy + correction));
+            }
+        });
+    }
     if (isFullscreenDiagram) {
         enableSVGZoomPan(container.querySelector("svg"));
     }
