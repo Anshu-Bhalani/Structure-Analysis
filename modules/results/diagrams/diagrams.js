@@ -874,7 +874,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
                 const labelText = getSelectedElementLabelText(el, n1, n2);
-                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${(midY + 2).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
             }
         }
     });
@@ -1197,7 +1197,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
                     if (angle > 90) angle -= 180;
                     if (angle < -90) angle += 180;
                     const labelText = getSelectedElementLabelText(el, n1, n2);
-                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
+                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="2.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
                 });
             }
         }
@@ -2275,7 +2275,7 @@ function getCurrentDeformationScale() {
 
 // Legend of the structure (model) diagram: one row per element with its ID and
 // section / material properties (same values and units as the Step 2 member table).
-const FS_ELEMENT_LABEL_DEFAULTS = ["id", "inertia"];
+const FS_ELEMENT_LABEL_DEFAULTS = ["inertia"];
 let fsElementLabelKeys = [...FS_ELEMENT_LABEL_DEFAULTS];
 
 function initElementLabelPicker() {
@@ -2292,7 +2292,15 @@ function initElementLabelPicker() {
     options.querySelectorAll('input[type="checkbox"]').forEach((input) => {
         input.checked = fsElementLabelKeys.includes(input.value);
         input.addEventListener("change", () => {
-            fsElementLabelKeys = Array.from(options.querySelectorAll('input[type="checkbox"]:checked')).map((item) => item.value);
+            // The element ID is always shown; only one optional property can be selected.
+            if (input.checked) {
+                options.querySelectorAll('input[type="checkbox"]').forEach((other) => {
+                    if (other !== input) other.checked = false;
+                });
+                fsElementLabelKeys = [input.value];
+            } else {
+                fsElementLabelKeys = [];
+            }
             if (typeof drawDiagramSVG === "function") drawDiagramSVG("fsSVG", "model");
         });
     });
