@@ -3395,8 +3395,7 @@ function getDoFDiagramSVG(width, height) {
         const b = pointForNode(el.endNode);
         if (!a || !b) return;
 
-        svg += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
-            stroke="${memberGray}" stroke-width="${MEMBER_STROKE}" stroke-linecap="butt"/>`;
+        svg += `<g class="sf-member" data-member="${index}" data-start="${esc(String(el.startNode))}" data-end="${esc(String(el.endNode))}"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="rgba(0,0,0,0)" stroke-width="18" pointer-events="stroke"/><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${memberGray}" stroke-width="${MEMBER_STROKE}" stroke-linecap="butt"/></g>`;
 
         const bubble = chooseMemberBubbleAnchor(a, b);
         const mx = bubble.x;
