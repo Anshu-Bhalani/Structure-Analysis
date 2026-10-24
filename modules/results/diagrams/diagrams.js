@@ -876,7 +876,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
                 // Keep the label anchor at the exact member midpoint. Any offset
                 // based on stroke width is magnified when the model is zoomed.
                 const labelText = getSelectedElementLabelText(el, n1, n2);
-                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" dy="0.12em" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" dy="1px" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
             }
         }
     });
