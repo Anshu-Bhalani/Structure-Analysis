@@ -358,7 +358,7 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
         "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
         "modules/results/step-3/step-3.js": "v=20261012-thermal-AT-v1",
         "modules/results/step-4/step-4.js": "v=20261012-thermal-AT-v1",
-        "modules/results/diagrams/diagrams.js": "v=20261024-label-vertical-center",
+        "modules/results/diagrams/diagrams.js": "v=20261024-element-label-toggle",
         "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
     for (const [file, version] of Object.entries(versionByFile)) {
@@ -476,3 +476,13 @@ test("editing a saved temperature-gradient load restores and reveals both T1/T2 
         "editLoad must refresh conditional visibility after restoring the thermal inputs");
 });
 
+
+
+test("element ID labels respect the Element ID checkbox and disappear when all labels are unchecked", () => {
+    const labelSource = section(diagramsForDiagramLabelsSource, "function getSelectedElementLabelText(el, n1, n2) {", "\nfunction buildElementPropertiesLegendRows()");
+    assert.match(labelSource, /const labelValues = \{ id: String\(el\.id\), \.\.\.values \};/);
+    assert.match(labelSource, /filter\(\(key\) => allowed\.includes\(key\) && labelValues\[key\]\)/);
+    assert.doesNotMatch(labelSource, /return \[String\(el\.id\), \.\.\.selected\]/);
+    assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="fs-element-property-label"/);
+    assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="grid-member-id"/);
+});
