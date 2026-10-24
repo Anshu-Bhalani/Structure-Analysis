@@ -14,6 +14,7 @@ mountModuleHTML(".container", "beforeend", `
             <div class="home-brand-text">
                 <h1>Structure Analysis</h1>
                 <p>Structural Analysis Model Manager</p>
+                <p class="home-course-label">Advance Structure Mechanics (3CL102ME24)</p>
             </div>
         </div>
         <div class="home-standalone-actions">
