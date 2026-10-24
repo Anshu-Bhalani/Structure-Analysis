@@ -265,3 +265,18 @@ svg.sf-focus-on .sf-dim { opacity: 0.15; }
 .grid-torsion-symbol:hover path,
 .grid-torsion-symbol:focus path,
 .grid-torsion-symbol.grid-symbol-selected path { stroke-width: 3.4; }
+
+
+/* Configurable element labels in the fullscreen structure-model toolbar. */
+.fs-label-picker { position: relative; }
+.fs-label-toggle { width: auto; min-width: 72px; padding: 0 10px; font-size: 12px; font-weight: 700; }
+.fs-label-options {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+    min-width: 190px; padding: 12px; display: flex; flex-direction: column; gap: 9px;
+    background: #fff; color: #1f2937; border: 1px solid #cbd5e1; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(15,23,42,.18); font-size: 12px;
+}
+.fs-label-options[hidden] { display: none !important; }
+.fs-label-options strong { font-size: 12px; margin-bottom: 2px; }
+.fs-label-options label { display: flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer; }
+.fs-label-options input { width: 15px; height: 15px; margin: 0; accent-color: #2563eb; }

@@ -88,6 +88,19 @@ mountModuleHTML(".app", "afterend", `
             <button type="button" class="fs-nav-btn" id="fsNavHighlightBtn" data-tool="highlight" aria-pressed="false" title="Member Highlight (click / tap a member)" aria-label="Member Highlight toggle">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"/><circle cx="4" cy="20" r="2" fill="currentColor"/><circle cx="20" cy="4" r="2" fill="currentColor"/><line x1="4" y1="4" x2="9" y2="4" opacity="0.5"/><line x1="15" y1="20" x2="20" y2="20" opacity="0.5"/></svg>
             </button>
+            <div class="fs-label-picker" id="fsLabelPicker">
+                <button type="button" class="fs-nav-btn fs-label-toggle" id="fsLabelToggle" aria-expanded="false" aria-controls="fsLabelOptions" title="Choose element labels">Labels ▾</button>
+                <div class="fs-label-options" id="fsLabelOptions" hidden>
+                    <strong>Show on elements</strong>
+                    <label><input type="checkbox" value="id" checked> Element ID</label>
+                    <label><input type="checkbox" value="length"> Length (m)</label>
+                    <label class="fs-label-area-option"><input type="checkbox" value="area"> Area A (m²)</label>
+                    <label><input type="checkbox" value="inertia" checked> Inertia I (m⁴)</label>
+                    <label class="fs-label-grid-option"><input type="checkbox" value="torsion"> Torsion constant J (m⁴)</label>
+                    <label><input type="checkbox" value="elasticity"> Elastic modulus E</label>
+                    <label class="fs-label-grid-option"><input type="checkbox" value="shear"> Shear modulus G</label>
+                </div>
+            </div>
         </div>
         <div id="fsSVG"></div>
     </div>
@@ -857,21 +870,16 @@ function getStructureSVG(width, height, camera, mode = "model") {
             } else {
                 svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${elStroke}" stroke-width="${elementStrokeWidth}"/>`;
             }
-            if (mode === "model" && !isGridAnalysisMode()) {
-                const elementLength = Math.hypot(Number(n2.x) - Number(n1.x), Number(n2.y) - Number(n1.y));
-                if (Number.isFinite(elementLength) && elementLength > 0) {
-                    const midX = (x1 + x2) / 2;
-                    const midY = (y1 + y2) / 2;
-                    let labelAngle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-                    if (labelAngle > 90) labelAngle -= 180;
-                    if (labelAngle < -90) labelAngle += 180;
-
-                    svg += `<g transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${labelAngle.toFixed(2)})">
-                        <text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle"
-                              fill="#000000" font-family="Arial" font-size="8" font-weight="bold">
-                            ${escapeHtml(String(el.id))}
-                        </text>
-                    </g>`;
+            if (mode === "model") {
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                const lines = getSelectedElementLabelLines(el, n1, n2);
+                if (lines.length) {
+                    const lineHeight = 9;
+                    const startY = -((lines.length - 1) * lineHeight) / 2;
+                    svg += `<g class="fs-element-property-label" pointer-events="none">${lines.map((line, index) =>
+                        `<text x="${midX.toFixed(2)}" y="${(midY + startY + index * lineHeight).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(line)}</text>`
+                    ).join("")}</g>`;
                 }
             }
         }
@@ -1194,7 +1202,10 @@ function getStructureSVG(width, height, camera, mode = "model") {
                     let angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
                     if (angle > 90) angle -= 180;
                     if (angle < -90) angle += 180;
-                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(String(el.id))}</text></g>`;
+                    const labelLines = getSelectedElementLabelLines(el, n1, n2);
+                    const lineHeight = 9;
+                    const firstY = -((labelLines.length - 1) * lineHeight) / 2;
+                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})">${labelLines.map((line, index) => `<text x="0" y="${(firstY + index * lineHeight).toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(line)}</text>`).join("")}</g>`;
                 });
             }
         }
@@ -2272,6 +2283,53 @@ function getCurrentDeformationScale() {
 
 // Legend of the structure (model) diagram: one row per element with its ID and
 // section / material properties (same values and units as the Step 2 member table).
+const FS_ELEMENT_LABEL_DEFAULTS = ["id", "inertia"];
+let fsElementLabelKeys = [...FS_ELEMENT_LABEL_DEFAULTS];
+
+function initElementLabelPicker() {
+    const root = document.getElementById("fsLabelPicker");
+    if (!root || root.dataset.initialized === "true") return;
+    root.dataset.initialized = "true";
+    const toggle = document.getElementById("fsLabelToggle");
+    const options = document.getElementById("fsLabelOptions");
+    toggle.addEventListener("click", () => {
+        const open = options.hidden;
+        options.hidden = !open;
+        toggle.setAttribute("aria-expanded", String(open));
+    });
+    options.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.checked = fsElementLabelKeys.includes(input.value);
+        input.addEventListener("change", () => {
+            fsElementLabelKeys = Array.from(options.querySelectorAll('input[type="checkbox"]:checked')).map((item) => item.value);
+            if (typeof drawDiagramSVG === "function") drawDiagramSVG("fsSVG", "model");
+        });
+    });
+}
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initElementLabelPicker, { once: true });
+} else {
+    initElementLabelPicker();
+}
+
+function getSelectedElementLabelLines(el, n1, n2) {
+    const grid = isGridAnalysisMode();
+    const tmpl = (model.elementTemplates || []).find((t) => String(t.id) === String(el.templateId));
+    const length = n1 && n2 ? Math.hypot(Number(n2.x) - Number(n1.x), Number(n2.y) - Number(n1.y)) : NaN;
+    const fmt = (v) => Number.isFinite(Number(v)) ? formatNum(Number(v)) : "—";
+    const values = {
+        id: String(el.id),
+        length: `L=${fmt(length)} m`,
+        area: `A=${tmpl ? fmt(tmpl.A) : "—"} m²`,
+        inertia: `I=${tmpl ? fmt(tmpl.I) : "—"} m⁴`,
+        torsion: `J=${tmpl ? fmt(tmpl.J) : "—"} m⁴`,
+        elasticity: `E=${tmpl ? fmt(getElementEInternal(tmpl)) : "—"}`,
+        shear: `G=${tmpl ? fmt(tmpl.G_GPa !== undefined && tmpl.G_GPa !== "" ? tmpl.G_GPa : Number(tmpl.G) / 1e9) : "—"} GPa`
+    };
+    return fsElementLabelKeys
+        .filter((key) => key === "id" || (grid ? ["length", "inertia", "torsion", "elasticity", "shear"].includes(key) : ["length", "area", "inertia", "elasticity"].includes(key)))
+        .map((key) => values[key]);
+}
+
 function buildElementPropertiesLegendRows() {
     const grid = isGridAnalysisMode();
     return (model.elements || []).map((el) => {
@@ -2324,6 +2382,9 @@ function buildResultDiagramLegend(mode, deformationScale = 1) {
         `<span style="display:inline-block;width:24px;height:4px;background:${color};border-radius:2px;vertical-align:middle;margin-right:6px"></span>${label}`;
 
     if (mode === 'model') {
+        // Element properties are now selected from the fullscreen toolbar and
+        // rendered alongside each member, not in a fixed bottom table.
+        return '';
         const rows = buildElementPropertiesLegendRows();
         if (!rows.length) return '';
         const grid = isGridAnalysisMode();
