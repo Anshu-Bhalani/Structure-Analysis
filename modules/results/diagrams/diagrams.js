@@ -873,8 +873,10 @@ function getStructureSVG(width, height, camera, mode = "model") {
             if (mode === "model" && !isGridAnalysisMode()) {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
+                // Nudge text down relative to member thickness so visible glyphs sit at visual centre.
+                const labelCenterY = midY + elementStrokeWidth * 0.12;
                 const labelText = getSelectedElementLabelText(el, n1, n2);
-                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${labelCenterY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
             }
         }
     });
