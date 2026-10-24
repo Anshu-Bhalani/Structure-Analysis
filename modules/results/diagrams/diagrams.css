@@ -189,6 +189,9 @@
 
 .sf-member, .sf-diagram, .sf-label, .sf-node { transition: opacity 0.15s; }
 
+/* The selected member stays visually prominent in every fullscreen diagram mode. */
+.sf-member.sf-active .sf-member-line { stroke: #2563eb !important; stroke-width: 6 !important; }
+.sf-member.sf-dim { opacity: 0.15; }
 svg.sf-focus-on .sf-dim { opacity: 0.15; }
 
 /* ===== Fullscreen canvas navigation toolbar (Zoom / Pan / Member Highlight) ===== */
