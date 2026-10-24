@@ -358,7 +358,7 @@ test("Grid diagram labels refresh at fullscreen open and corrected scripts bypas
         "modules/results/step-2/step-2.js": "v=20261012-element-E-kn-m2",
         "modules/results/step-3/step-3.js": "v=20261012-thermal-AT-v1",
         "modules/results/step-4/step-4.js": "v=20261012-thermal-AT-v1",
-        "modules/results/diagrams/diagrams.js": "v=20261024-rotated-model-element-labels",
+        "modules/results/diagrams/diagrams.js": "v=20261024-highlight-all-diagrams",
         "modules/results/results.js": "v=20261011-grid-my-torsion-refresh"
     };
     for (const [file, version] of Object.entries(versionByFile)) {
@@ -498,4 +498,17 @@ test("structural model element labels rotate with member angle and stay upright"
     assert.match(modelLabelBlock, /if \(labelAngle > 90\) labelAngle -= 180;/);
     assert.match(modelLabelBlock, /if \(labelAngle < -90\) labelAngle \+= 180;/);
     assert.match(modelLabelBlock, /transform="rotate\(\$\{labelAngle\.toFixed\(2\)\} \$\{midX\.toFixed\(2\)\} \$\{midY\.toFixed\(2\)\}\)"/);
+});
+
+
+test("member highlight hit targets are present in structural, reaction, displacement, and DOF diagrams", () => {
+    const memberLoop = section(diagramsForDiagramLabelsSource, "const isInternalActionMode", "// Support symbols are shown consistently");
+    assert.match(memberLoop, /class="sf-member" data-member="\$\{ei\}"/);
+    assert.match(memberLoop, /mode === "afd" \|\| mode === "sfd" \|\| mode === "bmd"/);
+    assert.match(memberLoop, /data-start="\$\{escapeHtml\(String\(el\.startNode\)\)\}"/);
+    assert.match(memberLoop, /data-end="\$\{escapeHtml\(String\(el\.endNode\)\)\}"/);
+    const dofSource = section(diagramsForDiagramLabelsSource, "function getDoFDiagramSVG", "\nfunction");
+    assert.match(dofSource, /class="sf-member" data-member="\$\{index\}"/);
+    const focusSource = section(diagramsForDiagramLabelsSource, "function applyMemberFocus(root) {", "function handleMemberFocusTap(target)");
+    assert.match(focusSource, /svg\.querySelector\("\.sf-member"\)/);
 });
