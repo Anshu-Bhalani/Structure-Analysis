@@ -931,10 +931,11 @@ tr:hover td {
     width: 58px;
     height: 58px;
     object-fit: contain;
+    object-position: center;
     margin: 0 0 14px 2px;
-    border-radius: 8px;
-    background: #fff;
-    padding: 4px;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
 }
 .about-section { max-width: 1080px; margin: 0 auto; padding: 8px 0 32px; }
 .about-hero {
