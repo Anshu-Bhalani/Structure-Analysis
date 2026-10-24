@@ -540,3 +540,12 @@
         height: 50px;
     }
 }
+
+
+.home-course-label {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    font-weight: 650;
+    color: var(--text-secondary, #64748b);
+}
