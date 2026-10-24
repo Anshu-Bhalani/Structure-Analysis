@@ -486,3 +486,16 @@ test("element ID labels respect the Element ID checkbox and disappear when all l
     assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="fs-element-property-label"/);
     assert.match(diagramsForDiagramLabelsSource, /if \(labelText\) \{\s+svg \+= `\<g class="grid-member-id"/);
 });
+
+
+test("structural model element labels rotate with member angle and stay upright", () => {
+    const modelLabelBlock = section(
+        diagramsForDiagramLabelsSource,
+        'if (mode === "model" && !isGridAnalysisMode()) {',
+        "\n        }\n    });"
+    );
+    assert.match(modelLabelBlock, /Math\.atan2\(y2 - y1, x2 - x1\)/);
+    assert.match(modelLabelBlock, /if \(labelAngle > 90\) labelAngle -= 180;/);
+    assert.match(modelLabelBlock, /if \(labelAngle < -90\) labelAngle \+= 180;/);
+    assert.match(modelLabelBlock, /transform="rotate\(\$\{labelAngle\.toFixed\(2\)\} \$\{midX\.toFixed\(2\)\} \$\{midY\.toFixed\(2\)\}\)"/);
+});
