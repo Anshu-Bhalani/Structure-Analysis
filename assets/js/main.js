@@ -46,6 +46,7 @@ document.body.insertAdjacentHTML("afterbegin", `
             <img class="brand-logo" src="assets/images/nirma-shield-transparent.webp" alt="Nirma University emblem">
             <h1>Structure Analysis</h1>
             <p>Input Model Builder</p>
+            <p class="brand-course-label">Advance Structure Mechanics (3CL102ME24)</p>
         </div>
         <div class="nav-title">Model Input</div>
         <div class="nav-buttons">
