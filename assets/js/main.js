@@ -123,7 +123,7 @@ document.body.insertAdjacentHTML("afterbegin", `
                         <p class="about-secondary">Course Code: 3CL102ME24</p>
                     </article>
                 </div>
-                <p class="about-note">This project is intended for educational use. Always verify important engineering calculations independently before using them in real-world design.</p>
+
             </section>
         </div>
     </main>
