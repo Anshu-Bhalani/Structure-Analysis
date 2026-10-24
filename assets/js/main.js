@@ -2378,13 +2378,16 @@ function switchSection(id, btnEl) {
     if (target) target.classList.add("active");
 
     const appRoot = document.querySelector(".app");
-    if (appRoot) appRoot.classList.toggle("home-mode", id === "home");
+    if (appRoot) {
+        appRoot.classList.toggle("home-mode", id === "home");
+        appRoot.classList.toggle("about-mode", id === "about");
+    }
 
     const liveModelDiagramCard = document.getElementById("liveModelDiagramCard");
-    if (liveModelDiagramCard) liveModelDiagramCard.style.display = id === "home" ? "none" : "block";
+    if (liveModelDiagramCard) liveModelDiagramCard.style.display = (id === "home" || id === "about") ? "none" : "block";
 
     const homeButton = document.getElementById("topbarHomeButton");
-    if (homeButton) homeButton.style.display = id === "home" ? "none" : "inline-flex";
+    if (homeButton) homeButton.style.display = (id === "home" || id === "about") ? "none" : "inline-flex";
 
     updatePageTitle(id);
     updatePageSubtitle(id);
