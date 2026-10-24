@@ -874,7 +874,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
                 const labelText = getSelectedElementLabelText(el, n1, n2);
-                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
+                svg += `<g class="fs-element-property-label" pointer-events="none"><text x="${midX.toFixed(2)}" y="${midY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="700">${escapeHtml(labelText)}</text></g>`;
             }
         }
     });
@@ -1197,7 +1197,7 @@ function getStructureSVG(width, height, camera, mode = "model") {
                     if (angle > 90) angle -= 180;
                     if (angle < -90) angle += 180;
                     const labelText = getSelectedElementLabelText(el, n1, n2);
-                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" stroke="#ffffff" stroke-width="2.7" stroke-linejoin="round" paint-order="stroke fill" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
+                    svg += `<g class="grid-member-id" pointer-events="none" transform="translate(${midX.toFixed(2)} ${midY.toFixed(2)}) rotate(${angle.toFixed(2)})"><text x="0" y="0.3" text-anchor="middle" dominant-baseline="middle" fill="#111827" font-family="Arial" font-size="8" font-weight="800">${escapeHtml(labelText)}</text></g>`;
                 });
             }
         }
