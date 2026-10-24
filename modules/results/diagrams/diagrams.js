@@ -2310,7 +2310,7 @@ function getSelectedElementLabelText(el, n1, n2) {
     const fmt = (v) => Number.isFinite(Number(v)) ? formatNum(Number(v)) : "—";
     const values = {
         length: `L=${fmt(length)} m`,
-        area: `A=${tmpl ? fmt(tmpl.A) : "—"} m²`,
+        area: `A=${fmt(tmpl?.A ?? tmpl?.area ?? tmpl?.crossSectionArea ?? el.A ?? el.area) } m²`,
         inertia: `I=${tmpl ? fmt(tmpl.I) : "—"} m⁴`,
         torsion: `J=${tmpl ? fmt(tmpl.J) : "—"} m⁴`,
         elasticity: `E=${tmpl ? fmt(getElementEInternal(tmpl)) : "—"}`,
