@@ -191,6 +191,9 @@
 
 /* The selected member stays visually prominent in every fullscreen diagram mode. */
 .sf-member.sf-active .sf-member-line { stroke: #2563eb !important; stroke-width: 6 !important; }
+/* The dedicated DOF renderer uses a plain visible line rather than .sf-member-line.
+   Target that line too, so selection is visibly highlighted there as well. */
+.sf-member.sf-active > line:last-child { stroke: #2563eb !important; stroke-width: 6 !important; }
 .sf-member.sf-dim { opacity: 0.15; }
 svg.sf-focus-on .sf-dim { opacity: 0.15; }
 
