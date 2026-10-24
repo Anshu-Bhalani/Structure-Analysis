@@ -279,4 +279,5 @@ svg.sf-focus-on .sf-dim { opacity: 0.15; }
 .fs-label-options[hidden] { display: none !important; }
 .fs-label-options strong { font-size: 12px; margin-bottom: 2px; }
 .fs-label-options label { display: flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer; }
+.fs-label-options label[hidden] { display: none !important; }
 .fs-label-options input { width: 15px; height: 15px; margin: 0; accent-color: #2563eb; }
